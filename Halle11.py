@@ -23,10 +23,25 @@ WELLPASS_QR_LINK = "https://cdn.jsdelivr.net/gh/PadelPort/PP/Wellpass.jpeg"
 
 # 🎾 PADEL-WÖRTERBUCH FÜR EASTER EGGS
 PADEL_TERMS = {
-    'laden': ['🔄 Chiquita wird geladen...', '⚡ Gancho im Einsatz...', '🎯 Cuchilla schärft...', '💥 Remate kommt...'],
-    'verarbeite': ['🌍 Globo dreht sich...', '💫 Smashes & Specials kommen...', '👑 Por tres wird gezählt...', '🚀 Por cuatro knallt...'],
-    'speichere': ['📝 Rulo wird aufgerollt...', '🎭 Amago de remate aktiviert...', '🏐 Rebote wird gebucht...', '🚪 Verja geschlossen...'],
-    'fehler': ['❌ Salida de pista!', '⚠️ Aus dem Netz!', '🔥 Fehlerquote hoch!'],
+    'laden': [
+        '🔄 Chiquita wird geladen...', '⚡ Gancho im Einsatz...', '🎯 Cuchilla schärft...', '💥 Remate kommt...',
+        '🏆 Andy checkt die Stats...', '🎾 Die Halle 11 dreht auf...', '⚡ Famiglia Schneiderhan powered!'
+    ],
+    'verarbeite': [
+        '🌍 Globo dreht sich...', '💫 Smashes & Specials kommen...', '👑 Por tres wird gezählt...', '🚀 Por cuatro knallt...',
+        '🏃 Mattia analysiert...', '🎯 Marcel rechnet...', '⚡ Tanja organisiert...',
+        '🎾 Der Berg wird gerockt!', '💪 Halle 11 Power Mode!'
+    ],
+    'speichere': [
+        '📝 Rulo wird aufgerollt...', '🎭 Amago de remate aktiviert...', '🏐 Rebote wird gebucht...', '🚪 Verja geschlossen...',
+        '💾 Stats im Berg gespeichert...', '✨ Halle 11 Daten sicher!', '🎾 Dein Spiel ist dokumentiert!',
+        '👑 Andy nickt zustimmend...', '🏆 Noch so ein Match und du bist Top 10!'
+    ],
+    'fehler': [
+        '❌ Salida de pista!', '⚠️ Aus dem Netz!', '🔥 Fehlerquote hoch!',
+        '😅 Oops - Check-In vergessen?', '🤔 Andy fragt nach...', '📱 Wellpass-Check erforderlich!',
+        '⚠️ Halle 11 braucht deine Signatur!'
+    ],
 }
 
 PRODUCT_TYPES = {
@@ -37,11 +52,8 @@ PRODUCT_TYPES = {
 }
 
 MITARBEITER = {
-    'Andy Bär', 'Bella Schopf', 'Chris Schopf', 'Dagmar Ludwig', 'Denis Messerschmidt', 'Dennis Ochmann', 
-    'Enna Kulasevic', 'Fabio Pfaffenbauer', 'Lena Wagenblast', 'Lewis Abraham', 'Lisa Pfaffenbauer', 
-    'Manuel Müller', 'Michaela Schopf', 'Michael Osterrieder', 'Nico Warga', 'Noemi Mantel', 
-    'Oliver Krieger', 'Pascal Menikheim', 'Patrick Bucher', 'Tobi Regnet', 'Valentin Schwamborn',
-    'Spieler 1', 'Spieler 2', 'Spieler 3', 'Spieler 4'
+    'Andreas Schneiderhan', 'Tanja Schneiderhan', 'Mattia Mauta', 'Marcel Sidorov',
+    'Spieler 1', 'Spieler 2', 'Spieler 3', 'Spieler 4', 'Playtomic'
 }
 
 # ========================================
