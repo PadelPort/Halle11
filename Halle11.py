@@ -21,6 +21,14 @@ import re
 WELLPASS_WERT = 12.50
 WELLPASS_QR_LINK = "https://cdn.jsdelivr.net/gh/PadelPort/PP/Wellpass.jpeg"
 
+# 🎾 PADEL-WÖRTERBUCH FÜR EASTER EGGS
+PADEL_TERMS = {
+    'laden': ['🔄 Chiquita wird geladen...', '⚡ Gancho im Einsatz...', '🎯 Cuchilla schärft...', '💥 Remate kommt...'],
+    'verarbeite': ['🌍 Globo dreht sich...', '💫 Smashes & Specials kommen...', '👑 Por tres wird gezählt...', '🚀 Por cuatro knallt...'],
+    'speichere': ['📝 Rulo wird aufgerollt...', '🎭 Amago de remate aktiviert...', '🏐 Rebote wird gebucht...', '🚪 Verja geschlossen...'],
+    'fehler': ['❌ Salida de pista!', '⚠️ Aus dem Netz!', '🔥 Fehlerquote hoch!'],
+}
+
 PRODUCT_TYPES = {
     'User booking registration': 'Reservierung',
     'Open match registration': 'Open Match',
@@ -29,324 +37,22 @@ PRODUCT_TYPES = {
 }
 
 MITARBEITER = {
-    'Andy Schneiderhan', 'Andreas Schneiderhan', 'Tanja Schneiderhan', 'Mattia Mauta', 'Marcel Sidorov',
-    'Spieler 1', 'Spieler 2', 'Spieler 3', 'Spieler 4', 'Playtomic'
+    'Andy Bär', 'Bella Schopf', 'Chris Schopf', 'Dagmar Ludwig', 'Denis Messerschmidt', 'Dennis Ochmann', 
+    'Enna Kulasevic', 'Fabio Pfaffenbauer', 'Lena Wagenblast', 'Lewis Abraham', 'Lisa Pfaffenbauer', 
+    'Manuel Müller', 'Michaela Schopf', 'Michael Osterrieder', 'Nico Warga', 'Noemi Mantel', 
+    'Oliver Krieger', 'Pascal Menikheim', 'Patrick Bucher', 'Tobi Regnet', 'Valentin Schwamborn',
+    'Spieler 1', 'Spieler 2', 'Spieler 3', 'Spieler 4'
 }
 
 # ========================================
 # HELPER FUNCTIONS
 # ========================================
 
-def get_wellpass_wert(for_date: date) -> float:
-    """
-    Gibt den passenden Wellpass-Payout für ein Datum zurück.
-    Ab 01.12.2025: 12.50 €, davor 12.50 €.
-    """
-    grenze = date(2025, 12, 1)
-    if for_date >= grenze:
-        return 12.50
-    return 12.50
+def get_random_padel_message(msg_type: str) -> str:
+    """Gibt random Padel-Easter-Egg-Message zurück"""
+    messages = PADEL_TERMS.get(msg_type, ['⏳ Loading...'])
+    return random.choice(messages)
 
-def send_wellpass_template(to_phone_e164: str, firstname: str, playtime: str) -> bool:
-    """
-    Sendet das Twilio WhatsApp-Template:
-    🎾 Hey {{1}}! ... Du hast um {{2}} Uhr gespielt. ... {{3}} = QR-Link
-    """
-    try:
-        from twilio.rest import Client
-
-        twilio_conf = st.secrets.get("twilio", {})
-        account_sid = twilio_conf.get("account_sid")
-        auth_token = twilio_conf.get("auth_token")
-        from_number = twilio_conf.get("whatsapp_from")  # z.B. 'whatsapp:+14155238886'
-        template_name = twilio_conf.get("template_name", "wellpass_reminder_v1")
-
-        if not all([account_sid, auth_token, from_number]):
-            st.error("❌ Twilio-Konfiguration unvollständig (account_sid/auth_token/whatsapp_from).")
-            return False
-
-        client = Client(account_sid, auth_token)
-
-        # Twilio-konforme Nummer
-        if not to_phone_e164.startswith("+"):
-            # Fallback: deutsche Nummer annehmen
-            to_phone_e164 = "+49" + to_phone_e164.lstrip("0").replace(" ", "")
-        to_number = f"whatsapp:{to_phone_e164}"
-
-        message = client.messages.create(
-            from_=from_number,
-            to=to_number,
-            content_sid=None,  # falls du Content Templates nutzt, sonst weglassen
-            # Für klassische Template-API (WhatsApp Business Templates):
-            # Twilio Doku: du kannst 'body' + 'template' je nach Setup nutzen.
-            body=None,
-            provide_feedback=False,
-            # Neuere API: messaging_service_sid + content variables – hier minimal generisch:
-            # Wir nutzen die 'template' Struktur, wie in deiner bisherigen send_fehler_notification_with_link-Funktion:
-            # (falls du die schon im Code hast, kannst du sie anpassen statt neu zu bauen)
-        )
-
-        st.success(f"✅ WhatsApp-Template gesendet! SID: {message.sid}")
-        return True
-
-    except Exception as e:
-        st.error(f"❌ WhatsApp-Fehler: {e}")
-        return False
-
-def send_wellpass_whatsapp_to_player(fehler_row: pd.Series) -> bool:
-    """
-    Sendet eine WhatsApp-Template-Nachricht (Wellpass-Reminder)
-    direkt an den Spieler (Nummer aus dem Customers-Sheet).
-    Nutzt das Twilio Content Template mit Platzhaltern:
-    {{1}} = Vorname, {{2}} = Spielzeit, {{3}} = QR-Link, {{4}} = Datum.
-    """
-    try:
-        from twilio.rest import Client
-        import json
-
-        twilio_conf = st.secrets.get("twilio", {})
-        account_sid = twilio_conf.get("account_sid")
-        auth_token = twilio_conf.get("auth_token")
-        from_number = twilio_conf.get("whatsapp_from")  # z.B. 'whatsapp:+14155238886'
-        content_sid = twilio_conf.get("content_sid", "HXe817b0a8d139ff7fcc7e5e476989bcb9")
-
-        if not all([account_sid, auth_token, from_number, content_sid]):
-            st.error("❌ Twilio-Konfiguration unvollständig (account_sid/auth_token/whatsapp_from/content_sid).")
-            return False
-
-        # 1) Telefonnummer aus Customers-Sheet holen
-        customers = loadsheet("customers")
-        if customers.empty or "name" not in customers.columns:
-            st.error("❌ Customers-Sheet leer oder 'name'-Spalte fehlt.")
-            return False
-
-        player_name_norm = normalize_name(fehler_row["Name"])
-        match = customers[customers["name"].apply(normalize_name) == player_name_norm]
-
-        if match.empty or "phone_number" not in match.columns or pd.isna(match.iloc[0]["phone_number"]):
-            st.error(f"❌ Keine Telefonnummer für {fehler_row['Name']} im Customers-Sheet gefunden.")
-            return False
-
-        raw_phone = str(match.iloc[0]["phone_number"]).strip()
-        if not raw_phone:
-            st.error(f"❌ Leere Telefonnummer für {fehler_row['Name']}.")
-            return False
-
-        # Nummer säubern
-        raw_phone = raw_phone.replace(" ", "").replace("-", "")
-
-        # WhatsApp-Nummer normalisieren
-        if raw_phone.startswith("whatsapp:"):
-            to_number = raw_phone
-        else:
-            if raw_phone.startswith("+"):
-                e164 = raw_phone
-            else:
-                e164 = "+49" + raw_phone.lstrip("0")
-            to_number = f"whatsapp:{e164}"
-
-        # Template-Variablen
-        full_name = str(fehler_row.get("Name", "")).strip()
-        firstname = full_name.split()[0] if full_name else "Padel-Fan"
-
-        # Zeit ({{2}})
-        spielzeit = str(fehler_row.get("Service_Zeit", "") or "").strip()
-        if not spielzeit:
-            spielzeit = "deiner gebuchten Zeit"
-
-        # Datum ({{4}})
-        service_date = fehler_row.get("Datum", "")
-        if pd.isna(service_date) or service_date == "":
-            service_date_str = ""
-        else:
-            try:
-                service_date_str = pd.to_datetime(service_date).strftime("%d.%m.%Y")
-            except Exception:
-                service_date_str = str(service_date)
-
-        # QR-Link ({{3}})
-        qr_link = WELLPASS_QR_LINK
-
-        client = Client(account_sid, auth_token)
-
-        msg = client.messages.create(
-            from_=from_number,
-            to=to_number,
-            content_sid=content_sid,
-            content_variables=json.dumps({
-                "1": firstname,
-                "2": spielzeit,
-                "3": qr_link,
-                "4": service_date_str,
-            }),
-        )
-
-        st.success(f"✅ WhatsApp-Template an {full_name} gesendet (SID: {msg.sid})")
-        log_whatsapp_sent(fehler_row, to_number)
-        return True
-
-    except Exception as e:
-        st.error(f"❌ WhatsApp-Fehler: {e}")
-        return False
-
-
-def send_wellpass_whatsapp_test(fehler_row: pd.Series) -> bool:
-    """
-    Sendet die Wellpass-Reminder-Template-Nachricht als TEST an die Admin-Nummer
-    (twilio.whatsapp_to in st.secrets), nicht an den Spieler.
-    Nutzt dasselbe Content Template ({{1}}, {{2}}, {{3}}, {{4}}).
-    """
-    try:
-        from twilio.rest import Client
-        import json
-
-        twilio_conf = st.secrets.get("twilio", {})
-        account_sid = twilio_conf.get("account_sid")
-        auth_token = twilio_conf.get("auth_token")
-        from_number = twilio_conf.get("whatsapp_from")
-        admin_phone = twilio_conf.get("whatsapp_to")
-        content_sid = twilio_conf.get("content_sid", "HXe817b0a8d139ff7fcc7e5e476989bcb9")
-
-        if not all([account_sid, auth_token, from_number, admin_phone, content_sid]):
-            st.error("❌ Twilio-Konfiguration unvollständig (account_sid/auth_token/whatsapp_from/whatsapp_to/content_sid).")
-            return False
-
-        raw_phone = str(admin_phone).strip()
-        if not raw_phone:
-            st.error("❌ Admin-Nummer (twilio.whatsapp_to) ist leer.")
-            return False
-
-        raw_phone = raw_phone.replace(" ", "").replace("-", "")
-
-        if raw_phone.startswith("whatsapp:"):
-            to_number = raw_phone
-        else:
-            if raw_phone.startswith("+"):
-                e164 = raw_phone
-            else:
-                e164 = "+49" + raw_phone.lstrip("0")
-            to_number = f"whatsapp:{e164}"
-
-        full_name = str(fehler_row.get("Name", "")).strip()
-        firstname = full_name.split()[0] if full_name else "Padel-Fan"
-
-        spielzeit = str(fehler_row.get("Service_Zeit", "") or "").strip()
-        if not spielzeit:
-            spielzeit = "deiner gebuchten Zeit"
-
-        service_date = fehler_row.get("Datum", "")
-        if pd.isna(service_date) or service_date == "":
-            service_date_str = ""
-        else:
-            try:
-                service_date_str = pd.to_datetime(service_date).strftime("%d.%m.%Y")
-            except Exception:
-                service_date_str = str(service_date)
-
-        qr_link = WELLPASS_WERT
-
-        client = Client(account_sid, auth_token)
-
-        msg = client.messages.create(
-            from_=from_number,
-            to=to_number,
-            content_sid=content_sid,
-            content_variables=json.dumps({
-                "1": firstname + " (TEST)",
-                "2": spielzeit,
-                "3": qr_link,
-                "4": service_date_str,
-            }),
-        )
-
-        st.success(f"✅ Test-Template an Admin gesendet (SID: {msg.sid})")
-        return True
-
-    except Exception as e:
-        st.error(f"❌ WhatsApp-Fehler (Test): {e}")
-        return False
-
-
-
-
-def send_wellpass_whatsapp_test(fehler_row: pd.Series) -> bool:
-    """
-    Sendet die Wellpass-Reminder-Template-Nachricht als TEST an die Admin-Nummer
-    (twilio.whatsapp_to in st.secrets), nicht an den Spieler.
-    Nutzt dasselbe Content Template ({{1}}, {{2}}, {{3}}).
-    """
-    try:
-        from twilio.rest import Client
-        import json
-
-        twilio_conf = st.secrets.get("twilio", {})
-        account_sid = twilio_conf.get("account_sid")
-        auth_token = twilio_conf.get("auth_token")
-        from_number = twilio_conf.get("whatsapp_from")
-        admin_phone = twilio_conf.get("whatsapp_to")
-        content_sid = twilio_conf.get("content_sid", "HXe817b0a8d139ff7fcc7e5e476989bcb9")
-
-        if not all([account_sid, auth_token, from_number, admin_phone, content_sid]):
-            st.error("❌ Twilio-Konfiguration unvollständig (account_sid/auth_token/whatsapp_from/whatsapp_to/content_sid).")
-            return False
-
-        raw_phone = str(admin_phone).strip()
-        if not raw_phone:
-            st.error("❌ Admin-Nummer (twilio.whatsapp_to) ist leer.")
-            return False
-
-        raw_phone = raw_phone.replace(" ", "").replace("-", "")
-
-        if raw_phone.startswith("whatsapp:"):
-            to_number = raw_phone
-        else:
-            if raw_phone.startswith("+"):
-                e164 = raw_phone
-            else:
-                e164 = "+49" + raw_phone.lstrip("0")
-            to_number = f"whatsapp:{e164}"
-        full_name = str(fehler_row.get("Name", "")).strip()
-        firstname = full_name.split()[0] if full_name else "Padel-Fan"
-
-        spielzeit = str(fehler_row.get("Service_Zeit", "") or "").strip()
-        if not spielzeit:
-            spielzeit = "deiner gebuchten Zeit"
-
-        service_date = fehler_row.get("Datum", "")
-        if pd.isna(service_date) or service_date == "":
-            service_date_str = ""
-        else:
-            try:
-                service_date_str = pd.to_datetime(service_date).strftime("%d.%m.%Y")
-            except Exception:
-                service_date_str = str(service_date)
-
-        qr_link = WELLPASS_QR_LINK
-
-        client = Client(account_sid, auth_token)
-
-        msg = client.messages.create(
-            from_=from_number,
-            to=to_number,
-            content_sid=content_sid,
-            content_variables=json.dumps({
-                "1": firstname + " (TEST)",
-                "2": spielzeit,
-                "3": qr_link,
-                "4": service_date_str,
-            }),
-        )
-
-
-        st.success(f"✅ Test-Template an Admin gesendet (SID: {msg.sid})")
-        return True
-
-    except Exception as e:
-        st.error(f"❌ WhatsApp-Fehler (Test): {e}")
-        return False
-
-
-    
 def validate_secrets():
     required = ["gcp_service_account", "google_sheets", "passwords"]
     missing = [k for k in required if k not in st.secrets]
@@ -384,6 +90,7 @@ def parse_date_safe(date_val):
         return None
 
 def parse_csv(f):
+    """Parse CSV mit Auto-Encoding & Delimiter-Detection"""
     try:
         content = f.read()
         f.seek(0)
@@ -552,7 +259,7 @@ def check_password():
     if st.session_state.get("password_correct", False):
         return True
     
-    st.markdown("<h1 style='text-align: center;'>🎾 Padel Port Dashboard</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>🎾 Halle 11 Dashboard</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #2c3e50;'>🔒 Anmelden</h3>", unsafe_allow_html=True)
     st.markdown("---")
     
@@ -689,7 +396,7 @@ def send_fehler_notification_with_link(fehler_row, to_player=False):
     message = f"""
 🎾 Hey {first_name}!
 
-Schön, dass du bei uns warst – ich hoffe, du hattest eine richtig gute Session auf dem Court! 😊
+Schön, dass du bei uns warst – ich hoffe, du hattest eine richtig gute Session! 😊
 
 {spielinfo}
 
@@ -703,10 +410,10 @@ Wir haben deinen Wellpass-Check-In noch nicht im System. Wär klasse, wenn du ih
 
 Vielen Dank dir und bis ganz bald auf dem Court! 🙌
 Liebe Grüße
-Michi vom Padel Port
+Andy vom Halle 11
 
 ---
-_Dies ist eine automatische Nachricht. Bei Rückfragen bitte an info@padel-port.com_
+_Dies ist eine automatische Nachricht. Bei Rückfragen: info@halle11.de_
 """.strip()
 
     success = send_whatsapp_message(to_number, message)
@@ -715,23 +422,6 @@ _Dies ist eine automatische Nachricht. Bei Rückfragen bitte an info@padel-port.
         log_whatsapp_sent(fehler_row, to_number)
     
     return success
-
-def test_whatsapp_connection():
-    to_number = st.secrets.get("twilio", {}).get("whatsapp_to")
-    
-    message = f"""
-🎾 *Padel Port Dashboard*
-
-✅ WhatsApp-Integration funktioniert!
-
-QR-Code Link-Test:
-{WELLPASS_QR_LINK}
-
----
-_Dies ist eine automatische Nachricht. Bei Rückfragen bitte an info@padel-port.com_
-    """.strip()
-    
-    return send_whatsapp_message(to_number, message)
 
 # ========================================
 # CUSTOMER-DATEN
@@ -755,86 +445,6 @@ def get_customer_data(player_name):
         }
     
     return None
-
-# ========================================
-# TEST-MODUS
-# ========================================
-
-def create_test_fehler_for_michael():
-    customers = loadsheet("customers")
-    
-    if not customers.empty and 'name' in customers.columns:
-        michael = customers[customers['name'].str.contains('Michael Osterrieder', case=False, na=False)]
-        
-        if not michael.empty:
-            michael_data = michael.iloc[0]
-            
-            test_fehler = {
-                'Name': michael_data.get('name', 'Michael Osterrieder'),
-                'Name_norm': normalize_name(michael_data.get('name', 'Michael Osterrieder')),
-                'Betrag': '7.50',
-                'Service_Zeit': datetime.now().strftime('%H:%M'),
-                'Datum': date.today().strftime('%Y-%m-%d'),
-                'Fehler': 'Ja',
-                'Relevant': 'Ja',
-                'Check-in': 'Nein',
-                'Mitarbeiter': 'Nein',
-                'Product_SKU': 'Court 2',
-                'phone_number': michael_data.get('phone_number', ''),
-                'email': michael_data.get('email', ''),
-                'category': michael_data.get('category_name', '')
-            }
-            
-            return test_fehler
-        else:
-            return {
-                'Name': 'Michael Osterrieder',
-                'Name_norm': normalize_name('Michael Osterrieder'),
-                'Betrag': '7.50',
-                'Service_Zeit': datetime.now().strftime('%H:%M'),
-                'Datum': date.today().strftime('%Y-%m-%d'),
-                'Fehler': 'Ja',
-                'Relevant': 'Ja',
-                'Check-in': 'Nein',
-                'Mitarbeiter': 'Nein',
-                'Product_SKU': 'Court 2',
-                'phone_number': 'Nicht in Customer-Sheet',
-                'email': 'Nicht in Customer-Sheet',
-                'category': 'Nicht in Customer-Sheet'
-            }
-    else:
-        return None
-
-def render_test_fehler_section():
-    st.markdown("---")
-    with st.expander("🧪 TEST-MODUS", expanded=False):
-        st.markdown("## Test mit echten Customer-Daten")
-        
-        test_fehler = create_test_fehler_for_michael()
-        
-        if test_fehler:
-            col_info, col_debug, col_action = st.columns([2, 2, 1])
-            
-            with col_info:
-                st.markdown("### 📋 Test-Daten")
-                st.caption(f"🧑 {test_fehler['Name']}")
-                st.caption(f"⏰ {test_fehler['Service_Zeit']} | 💰 €{test_fehler['Betrag']}")
-            
-            with col_debug:
-                st.markdown("### 🔍 Customer")
-                st.caption(f"📱 {test_fehler.get('phone_number', 'N/A')}")
-                st.caption(f"📧 {test_fehler.get('email', 'N/A')[:25]}...")
-            
-            with col_action:
-                st.markdown("### 🚀")
-                
-                if st.button("📱 Test", key="test_wa", type="primary", use_container_width=True):
-                    with st.spinner("..."):
-                        if send_fehler_notification_with_link(test_fehler, to_player=False):
-                            st.success("✅")
-                            st.balloons()
-                        else:
-                            st.error("❌")
 
 # ========================================
 # GOOGLE SHEETS
@@ -925,42 +535,6 @@ def save_sheet_with_retry(df, name, max_retries=3):
 
 def savesheet(df, name):
     return save_sheet_with_retry(df, name)
-
-def save_playtomic_raw(df):
-    try:
-        existing = loadsheet("playtomic_raw")
-        
-        if not existing.empty and 'Payment id' in existing.columns and 'Payment id' in df.columns:
-            def make_key(d):
-                payment_id = d.get('Payment id', '')
-                club_id = d.get('Club payment id', '')
-                key = f"{payment_id}|{club_id}" if payment_id else f"CLUB-{club_id}"
-                return key
-            
-            existing['_key'] = existing.apply(make_key, axis=1)
-            df['_key'] = df.apply(make_key, axis=1)
-            
-            existing_keys = set(existing['_key'].dropna())
-            df_new = df[~df['_key'].isin(existing_keys)].copy()
-            df_new = df_new.drop('_key', axis=1)
-            
-            if not df_new.empty:
-                existing = existing.drop('_key', axis=1)
-                df_combined = pd.concat([existing, df_new], ignore_index=True)
-                savesheet(df_combined, "playtomic_raw")
-                st.success(f"✅ {len(df_new)} neue Einträge!")
-                return True
-            else:
-                st.info("ℹ️ Keine neuen Daten (alle bereits vorhanden)")
-                return False
-        else:
-            savesheet(df, "playtomic_raw")
-            st.success(f"✅ {len(df)} Einträge!")
-            return True
-            
-    except Exception as e:
-        st.error(f"❌ Fehler: {e}")
-        return False
 
 def get_revenue_from_raw(date_str=None, start_date=None, end_date=None):
     raw_data = loadsheet("playtomic_raw")
@@ -1411,7 +985,7 @@ def render_learned_matches_manager():
 # MAIN APP
 # ========================================
 
-st.set_page_config(page_title="Padel Port Dashboard", layout="wide", page_icon="🎾")
+st.set_page_config(page_title="Halle 11 Dashboard", layout="wide", page_icon="🎾")
 
 st.markdown("""
 <style>
@@ -1464,7 +1038,7 @@ if not st.session_state.data_loaded:
             st.session_state.current_date = latest_date.strftime("%Y-%m-%d")
             st.session_state.data_loaded = True
 
-st.markdown("<h1 style='text-align: center;'>🎾 Padel Port Dashboard</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🎾 Halle 11 Wellpass Dashboard</h1>", unsafe_allow_html=True)
 
 # ========================================
 # SIDEBAR
@@ -1476,10 +1050,9 @@ p_file = st.sidebar.file_uploader("📁 Playtomic CSV", type=['csv'], key="playt
 c_file = st.sidebar.file_uploader("📁 Checkins CSV", type=['csv'], key="checkins")
 
 # ✅ PLAYTOMIC/CHECKIN ANALYSE
-if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file and c_file:
-    with st.spinner("🔄 Verarbeite..."):
+if st.sidebar.button("🎯 Analysieren", use_container_width=True) and p_file and c_file:
+    with st.spinner(get_random_padel_message('verarbeite')):
         pdf = pd.read_csv(p_file, sep=';', skiprows=3, engine='python', on_bad_lines='skip', encoding='utf-8')
-        save_playtomic_raw(pdf)
         
         playtomic_filtered = pdf[pdf['Product SKU'].isin(['User booking registration', 'Open match registration'])].copy() if 'Product SKU' in pdf.columns else pdf.copy()
         
@@ -1529,7 +1102,7 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
 
         
         playtomic_filtered['Relevant'] = (
-            ((playtomic_filtered['Betrag_num'] < 7) & (playtomic_filtered['Betrag_num'] > 0)) | 
+            ((playtomic_filtered['Betrag_num'] < 9) & (playtomic_filtered['Betrag_num'] > 0)) | 
             (playtomic_filtered['Betrag_num'] == 10) | 
             (playtomic_filtered['Betrag_num'] == 0)
         )
@@ -1548,13 +1121,12 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
             cdf['Checkin_Zeit'] = cdf['Checkin_Zeit'].fillna('')
         
         all_dates = sorted(set(playtomic_filtered['Servicedatum'].dropna()) | set(cdf['Checkin_Datum'].dropna()))
-        st.info(f"📦 Verarbeite {len(all_dates)} Tage...")
+        st.info(f"📦 {get_random_padel_message('verarbeite')} → {len(all_dates)} Tage...")
         
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         all_results = []
-        all_checkin_results = []
         
         mapping = load_name_mapping()
         
@@ -1617,13 +1189,11 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
                         'Gespielt': 'Ja' if gespielt else 'Nein',
                         'analysis_date': td.strftime("%Y-%m-%d")
                     })
-            
-            all_checkin_results.extend(checkin_results)
         
         progress_bar.progress(1.0)
-        status_text.success(f"✅ {len(all_dates)} Tage verarbeitet!")
+        status_text.success(f"✅ {len(all_dates)} Tage {get_random_padel_message('speichere')}!")
         
-        st.info("💾 Speichere...")
+        st.info(f"💾 {get_random_padel_message('speichere')}...")
         
         # ✅ DUPLIKAT-FILTERUNG BUCHUNGEN
         if all_results:
@@ -1665,7 +1235,7 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
                 st.success(f"✅ {len(all_results)} Buchungen!")
         
         # ✅ DUPLIKAT-FILTERUNG CHECK-INS
-        if all_checkin_results:
+        if all_results:
             checkins = loadsheet("checkins", ['analysis_date'])
             
             if not checkins.empty:
@@ -1676,7 +1246,7 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
                 )
                 existing_keys = set(checkins['_dup_key'])
                 
-                new_checkins_df = pd.DataFrame(all_checkin_results)
+                new_checkins_df = pd.DataFrame(checkin_results)
                 new_checkins_df['_dup_key'] = (
                     new_checkins_df['analysis_date'].astype(str) + '|' + 
                     new_checkins_df['Name_norm'].astype(str) + '|' + 
@@ -1699,11 +1269,11 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
                 else:
                     st.info("ℹ️ Keine neuen Check-ins (alle vorhanden)")
             else:
-                new_checkins = pd.DataFrame(all_checkin_results)
+                new_checkins = pd.DataFrame(checkin_results)
                 savesheet(new_checkins, "checkins")
-                st.success(f"✅ {len(all_checkin_results)} Check-ins!")
+                st.success(f"✅ {len(checkin_results)} Check-ins!")
         
-        st.success(f"🎉 Abgeschlossen!")
+        st.success(f"🎉 Fertig! {get_random_padel_message('laden')}")
         st.balloons()
         
         time.sleep(2)
@@ -1720,7 +1290,7 @@ st.sidebar.title("👥 Customer")
 cust_file = st.sidebar.file_uploader("📁 Customer CSV", type=['csv'], key="customers")
 
 if st.sidebar.button("📤 Hochladen", use_container_width=True, type="primary") and cust_file:
-    with st.spinner("🔄 Lade..."):
+    with st.spinner(get_random_padel_message('laden')):
         try:
             customers_df = parse_csv(cust_file)
             
@@ -1754,7 +1324,6 @@ with tab1:
         st.info("🔄 Lade CSVs hoch!")
         st.stop()
     
-    # Navigation
     col_prev, col_date, col_next = st.columns([1, 3, 1])
     
     with col_prev:
@@ -1794,16 +1363,17 @@ with tab1:
     
     date_str = curr_date.strftime("%A, %d. %B %Y")
     for en, de in {
-        "Monday": "Montag", "Tuesday": "Dienstag", "Wednesday": "Mittwoch",
-        "Thursday": "Donnerstag", "Friday": "Freitag", "Saturday": "Samstag", "Sunday": "Sonntag",
-        "January": "Januar", "February": "Februar", "March": "März", "April": "April",
-        "May": "Mai", "June": "Juni", "July": "Juli", "August": "August",
-        "September": "September", "October": "Oktober", "November": "November", "December": "Dezember"
+        "Monday":"Montag", "Tuesday":"Dienstag", "Wednesday":"Mittwoch", 
+        "Thursday":"Donnerstag", "Friday":"Freitag", "Saturday":"Samstag", "Sunday":"Sonntag",
+        "January":"Januar", "February":"Februar", "March":"März", "April":"April",
+        "May":"Mai", "June":"Juni", "July":"Juli", "August":"August",
+        "September":"September", "October":"Oktober", "November":"November", "December":"Dezember"
     }.items():
         date_str = date_str.replace(en, de)
     
     st.markdown(f"<h2 style='text-align: center; color: #2c3e50;'>📅 {date_str}</h2>", unsafe_allow_html=True)
     st.markdown("---")
+    
     
     df = load_snapshot(st.session_state.current_date)
     ci_df = load_checkins_snapshot(st.session_state.current_date)
@@ -1811,16 +1381,11 @@ with tab1:
     if df is None or df.empty:
         st.info("Keine Daten für diesen Tag.")
         st.stop()
-
+    
     revenue = get_revenue_from_raw(date_str=st.session_state.current_date)
     wellpass_unique_checkins = get_unique_wellpass_checkins(st.session_state.current_date)
-    
-    current_day = datetime.strptime(st.session_state.current_date, "%Y-%m-%d").date()
-    wellpass_wert_tag = get_wellpass_wert(current_day)
-        
-    wellpass_revenue = wellpass_unique_checkins * wellpass_wert_tag
+    wellpass_revenue = wellpass_unique_checkins * st.secrets.get("wellpass", {}).get("wert", 12.50)
     gesamt_mit_wellpass = revenue['gesamt'] + wellpass_revenue
-    
     
     st.subheader("💰 Umsatz")
     
@@ -1828,20 +1393,20 @@ with tab1:
     with col1:
         st.metric("💰 Gesamt", f"€{gesamt_mit_wellpass:.2f}")
     with col2:
-        pct = (revenue['gesamt'] / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+        pct = (revenue['gesamt']/gesamt_mit_wellpass*100) if gesamt_mit_wellpass > 0 else 0
         st.metric("🎾 Playtomic", f"€{revenue['gesamt']:.2f}", f"{pct:.0f}%")
     with col3:
-        pct = (revenue['reservierung'] / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+        pct = (revenue['reservierung']/gesamt_mit_wellpass*100) if gesamt_mit_wellpass > 0 else 0
         st.metric("🏟️ Courts", f"€{revenue['reservierung']:.2f}", f"{pct:.0f}%")
     with col4:
-        pct = (revenue['open_match'] / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+        pct = (revenue['open_match']/gesamt_mit_wellpass*100) if gesamt_mit_wellpass > 0 else 0
         st.metric("🏆 Matches", f"€{revenue['open_match']:.2f}", f"{pct:.0f}%")
     with col5:
         extras = revenue['baelle'] + revenue['schlaeger']
-        pct = (extras / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+        pct = (extras/gesamt_mit_wellpass*100) if gesamt_mit_wellpass > 0 else 0
         st.metric("🎾 Extras", f"€{extras:.2f}", f"{pct:.0f}%")
     with col6:
-        pct = (wellpass_revenue / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+        pct = (wellpass_revenue/gesamt_mit_wellpass*100) if gesamt_mit_wellpass > 0 else 0
         st.metric("💳 Wellpass", f"€{wellpass_revenue:.2f}", f"{wellpass_unique_checkins} P. ({pct:.0f}%)")
     
     if gesamt_mit_wellpass > 0:
@@ -1866,12 +1431,11 @@ with tab1:
         st.metric("👥 MA", len(df[df['Mitarbeiter'] == 'Ja']))
     with col5:
         st.metric("✅ Check-ins", len(ci_df) if ci_df is not None else 0)
-    
+
     st.markdown("---")
-    
+
     ct1, ct2 = st.columns(2)
-    
-    # Linke Tabelle: relevante Buchungen
+
     with ct1:
         rv = df[df['Relevant'] == 'Ja'].sort_values('Name').copy()
         display_cols = ['Name', 'Betrag']
@@ -1879,119 +1443,64 @@ with tab1:
             display_cols.append('Service_Zeit')
         display_cols.extend(['Check-in', 'Fehler'])
         styled = rv[display_cols].style.map(color_fehler, subset=['Fehler'])
-        st.dataframe(styled, use_container_width=True, hide_index=True, height=min(len(rv) * 35 + 38, 800))
+        st.dataframe(styled, use_container_width=True, hide_index=True, height=min(len(rv)*35+38, 800))
         st.caption(f"📊 {len(rv)} Relevant")
-    
-    # Rechte Tabelle: Check-ins mit "Gespielt" (inkl. Name-Mapping)
+
     with ct2:
-        
         if ci_df is not None and not ci_df.empty:
-            # Kopie + sichergehen, dass die Norm-Spalte existiert
             ci_view = ci_df.sort_values('Name').copy()
-            if 'Name_norm' not in ci_view.columns:
-                ci_view['Name_norm'] = ci_view['Name'].apply(normalize_name)
-    
-        # aktuelles Dashboard-Datum als Fallback für Checkins
-            current_date = datetime.strptime(st.session_state.current_date, "%Y-%m-%d").date()
 
-        # Name-Mapping laden (buchung_name_norm -> checkin_name_norm)
-            mapping = load_name_mapping()
-    
-        # Invertiertes Mapping: checkin_name_norm -> {buchung_name_norms}
-            inverse_mapping = {}
-            for buchung_name_norm, details in mapping.items():
-                if isinstance(details, dict):
-                    ci_norm = details.get("checkin_name", "")
-                else:
-                    ci_norm = details
-                if not ci_norm:
-                    continue
-                inverse_mapping.setdefault(ci_norm, set()).add(buchung_name_norm)
-
-            gespielt_list = []
-
-            for _, ci_row in ci_view.iterrows():
-                ci_name = ci_row.get("Name", "")
-                ci_name_norm = ci_row.get("Name_norm", "")
-            # In vielen Fällen gibt es keine eigene Datumsspalte im Checkin-Snapshot → Dashboard-Datum nutzen
-                ci_datum = ci_row.get("Checkin_Datum", current_date)
-                if pd.isna(ci_datum):
-                    ci_datum = current_date
-
-                if not ci_name_norm:
-                    gespielt_list.append("Nein")
-                    continue
-
-                # Alle Buchungen dieses Tages, die NICHT Mitarbeiter sind
-                day_bookings = df[
-                    (df["Datum"].astype(str) == str(ci_datum)) &
-                    (df["Mitarbeiter"] != "Ja")
-                ]
-
-                if day_bookings.empty:
-                    gespielt_list.append("Nein")
-                    continue
-
-                found = False
-
-                # 1) Direkter Match über Name_norm
-                if "Name_norm" in day_bookings.columns:
-                    if ci_name_norm in list(day_bookings["Name_norm"]):
-                        found = True
-
-            # 2) Wenn nicht gefunden: Mapping nutzen
-                if not found and ci_name_norm in inverse_mapping:
-                    for buchung_name_norm in inverse_mapping[ci_name_norm]:
-                        b_match = day_bookings[day_bookings["Name_norm"] == buchung_name_norm]
-                        if not b_match.empty:
-                            found = True
-                            break
-
-            # 3) Optionaler, einfacher Fallback-Vergleich (Nachname + ähnlicher Vorname)
-                if not found:
-                    ci_name_lower = ci_name.lower().strip()
-                    ci_parts = ci_name_lower.split()
-
-                    for _, booking in day_bookings.iterrows():
-                        booking_name = str(booking.get("Name", "")).lower().strip()
-                        b_parts = booking_name.split()
-
+            if not ci_view.empty and 'df' in locals():
+                gespielt_list = []
+                
+                for idx, ci_row in ci_view.iterrows():
+                    ci_name = ci_row.get('Name', '')
+                    ci_datum = ci_row.get('Datum', None)
+                    
+                    if not ci_name or ci_datum is None:
+                        gespielt_list.append('Nein')
+                        continue
+                    
+                    ci_datum_str = str(ci_datum)
+                    ci_name_lower = str(ci_name).lower().strip()
+                    
+                    day_bookings_with_checkin = df[
+                        (df['Datum'].astype(str) == ci_datum_str) &
+                        (df['Check-in'] == 'Ja')
+                    ]
+                    
+                    found = False
+                    for _, booking in day_bookings_with_checkin.iterrows():
+                        booking_name = str(booking.get('Name', '')).lower().strip()
+                        
                         if booking_name == ci_name_lower:
                             found = True
                             break
-
+                        
+                        ci_parts = ci_name_lower.split()
+                        b_parts = booking_name.split()
                         if len(ci_parts) >= 2 and len(b_parts) >= 2:
                             if ci_parts[-1] == b_parts[-1]:
                                 if ci_parts[0] in b_parts[0] or b_parts[0] in ci_parts[0]:
                                     found = True
                                     break
-
-                gespielt_list.append("Ja" if found else "Nein")
-
-            ci_view["Gespielt"] = gespielt_list
-
-            display_cols = ["Name", "Checkin_Zeit", "Gespielt"]
-
-            def color_gespielt(val: str) -> str:
-                if val == "Ja":
-                    return "background-color: #d4edda; color: #155724"
-                if val == "Nein":
-                    return "background-color: #f8d7da; color: #721c24"
-                return ""
-
-            styled_ci = ci_view[display_cols].style.map(color_gespielt, subset=["Gespielt"])
-            st.dataframe(
-                styled_ci,
-                use_container_width=True,
-                hide_index=True,
-                height=min(len(ci_view) * 35 + 38, 800),
-            )
+                    
+                    gespielt_list.append('Ja' if found else 'Nein')
+                
+                ci_view['Gespielt'] = gespielt_list
+            else:
+                ci_view['Gespielt'] = 'Nein'
+            
+            display_cols = ['Name', 'Checkin_Zeit', 'Gespielt']
+            def color_gespielt(val):
+                if val == 'Ja': return 'background-color: #d4edda; color: #155724'
+                elif val == 'Nein': return 'background-color: #f8d7da; color: #721c24'
+                return ''
+            styled_ci = ci_view[display_cols].style.map(color_gespielt, subset=['Gespielt'])
+            st.dataframe(styled_ci, use_container_width=True, hide_index=True, height=min(len(ci_view)*35+38, 800))
             st.caption(f"📊 {len(ci_view)} Check-ins (Unique: {wellpass_unique_checkins})")
         else:
             st.info("Keine Check-ins")
-
-
-
 
     st.markdown("---")
     
@@ -2123,73 +1632,41 @@ with tab1:
             render_name_matching_interface(row, ci_df, mapping, rejected_matches, fehler)
             
             st.markdown("---")
-
-
-
-        col_wa, col_email = st.columns(2)
-
-        with col_wa:
-            col_wa_player, col_wa_test = st.columns(2)
-
-            # 1) WhatsApp an Spieler
-            with col_wa_player:
+            
+            col_wa, col_email = st.columns(2)
+            
+            with col_wa:
                 button_label = "🔄 Erneut senden" if whatsapp_sent_time else "📱 WhatsApp senden"
                 button_type = "secondary" if whatsapp_sent_time else "primary"
-
+                
                 if st.button(button_label, key=f"wa_{key}", type=button_type, use_container_width=True):
                     st.session_state[f"confirm_wa_{key}"] = True
-                    st.session_state[f"confirm_wa_mode_{key}"] = "player"
                     st.rerun()
-
-            # 2) Test-WhatsApp an Admin
-            with col_wa_test:
-                if st.button("🧪 Test WhatsApp", key=f"wa_test_{key}", use_container_width=True):
-                    st.session_state[f"confirm_wa_{key}"] = True
-                    st.session_state[f"confirm_wa_mode_{key}"] = "test"
-                    st.rerun()
-
-            # Bestätigungsdialog für beide Modi
-            if st.session_state.get(f"confirm_wa_{key}", False):
-                mode = st.session_state.get(f"confirm_wa_mode_{key}", "player")
-                col_y, col_n = st.columns(2)
-
-                label_yes = "✅ Ja, an Spieler!" if mode == "player" else "✅ Ja, Test an mich!"
-
-                with col_y:
-                    if st.button(label_yes, key=f"y_{key}", type="primary", use_container_width=True):
-                        with st.spinner("Sende WhatsApp..."):
-                            if mode == "player":
-                                ok = send_wellpass_whatsapp_to_player(row)
-                            else:
-                                ok = send_wellpass_whatsapp_test(row)
-
-                            if ok:
-                                st.session_state[f"confirm_wa_{key}"] = False
-                                st.session_state[f"confirm_wa_mode_{key}"] = None
-                                time.sleep(1)
-                                st.rerun()
-
-                with col_n:
-                    if st.button("❌ Abbrechen", key=f"n_{key}", use_container_width=True):
-                        st.session_state[f"confirm_wa_{key}"] = False
-                        st.session_state[f"confirm_wa_mode_{key}"] = None
-                        st.rerun()
-
-        with col_email:
-            if st.button("📧 E-Mail", key=f"email_{key}", disabled=True, use_container_width=True):
-                        st.info("Coming soon")
+                
+                if st.session_state.get(f"confirm_wa_{key}", False):
+                    col_y, col_n = st.columns(2)
+                    
+                    with col_y:
+                        if st.button("✅ Ja, senden!", key=f"y_{key}", type="primary", use_container_width=True):
+                            with st.spinner(get_random_padel_message('laden')):
+                                if send_fehler_notification_with_link(row, to_player=False):
+                                    st.session_state[f"confirm_wa_{key}"] = False
+                                    time.sleep(1)
+                                    st.rerun()
+                    
+                    with col_n:
+                        if st.button("❌ Abbrechen", key=f"n_{key}", use_container_width=True):
+                            st.session_state[f"confirm_wa_{key}"] = False
+                            st.rerun()
+            
+            with col_email:
+                if st.button("📧 E-Mail", key=f"email_{key}", disabled=True, use_container_width=True):
+                    st.info("Coming soon")
 
     else:
         st.success("✅ Keine offenen Wellpass-Fehler! 🎉")
     
     render_learned_matches_manager()
-    
-    customers_check = loadsheet("customers")
-    if not customers_check.empty and 'name' in customers_check.columns:
-        render_test_fehler_section()
-    else:
-        st.markdown("---")
-        st.info("ℹ️ **Test:** Lade Customer-CSV!")
 
 with tab2:
     st.subheader("📊 Monat")
@@ -2243,7 +1720,7 @@ with tab2:
         wellpass_checkins_monat = 0
     
     revenue_month = get_revenue_from_raw(start_date=first_day, end_date=last_day)
-    wellpass_revenue_monat = wellpass_checkins_monat * WELLPASS_WERT
+    wellpass_revenue_monat = wellpass_checkins_monat * st.secrets.get("wellpass", {}).get("wert", 12.50)
     gesamt_umsatz = revenue_month['gesamt'] + wellpass_revenue_monat
     
     st.markdown("---")
@@ -2445,9 +1922,10 @@ col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     st.markdown(
         '<div style="text-align: center; color: #666; font-size: 12px;">'
-        '🎾 <b>Padel Port Dashboard v20.1 FINAL</b><br>'
-        '🚢 <b>Dock In. Game On.</b><br>'
-        'Made with ❤️ | 🍪 Cookie-Login | 🔄 Smart Duplikat-Filter | 📊 Synchronisierte Navigation'
+        '🎾 <b>Halle 11 Wellpass Dashboard v1.0</b><br>'
+        '👨‍💼 <b>mit ❤️ von Andy</b><br>'
+        '🍪 Cookie-Login | 🔄 Smart Duplikat-Filter | 📊 Padel Analytics<br>'
+        '<b>🎾 Chiquita | ⚡ Gancho | 🔪 Cuchilla | 💥 Remate | 🌍 Globo</b>'
         '</div>', 
         unsafe_allow_html=True
     )
