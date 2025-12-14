@@ -1592,7 +1592,6 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
         
         playtomic_filtered['Relevant'] = (
             ((playtomic_filtered['Betrag_num'] < 7) & (playtomic_filtered['Betrag_num'] > 0)) | 
-            (playtomic_filtered['Betrag_num'] == 10) | 
             (playtomic_filtered['Betrag_num'] == 0)
         )
         
