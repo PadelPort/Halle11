@@ -423,6 +423,51 @@ def normalize_name(name):
             .replace('ä', 'ae').replace('ö', 'oe').replace('ü', 'ue')
             .replace('ß', 'ss').replace('-', ' ').replace('  ', ' '))
 
+def get_sport_type(row: pd.Series) -> str:
+    """
+    Determine if booking is PADEL or TENNIS based on 'Sport' column.
+    
+    Parameters
+    ----------
+    row : pd.Series
+        Booking row from Playtomic CSV
+    
+    Returns
+    -------
+    str
+        '🎾 Padel' or '🎾 Tennis' or 'Unbekannt'
+    """
+    try:
+        sport = str(row.get('Sport', '')).strip().upper()
+        if sport == 'PADEL':
+            return '🎾 Padel'
+        elif sport == 'TENNIS':
+            return '🎾 Tennis'
+        else:
+            return 'Unbekannt'
+    except Exception:
+        return 'Unbekannt'
+
+def format_currency(amount: float) -> str:
+    """
+    Format amount as currency string (EUR with 2 decimals).
+    
+    Parameters
+    ----------
+    amount : float
+        Amount in EUR
+    
+    Returns
+    -------
+    str
+        Formatted string like "€13,50"
+    """
+    try:
+        val = float(amount)
+        return f"€{val:,.2f}".replace(",", "TEMP").replace(".", ",").replace("TEMP", ".")
+    except Exception:
+        return "€0,00"
+
 def parse_date_safe(date_val):
     if pd.isna(date_val) or date_val == '':
         return None
