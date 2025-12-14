@@ -1928,124 +1928,36 @@ with tab1:
     gesamt_mit_wellpass = revenue['gesamt'] + wellpass_revenue
     
     
-# ============================================
-# 📊 TAGESANSICHT - METRIC CARDS
-# ============================================
-
-def format_currency(amount: float) -> str:
-    """Format amount as EUR currency (€13,50)."""
-    try:
-        val = float(amount)
-        return f"€{val:,.2f}".replace(",", "TEMP").replace(".", ",").replace("TEMP", ".")
-    except Exception:
-        return "€0,00"
-
-# TAB 1: TAGESANSICHT
-with tabs[0]:
-    st.markdown("#### 💰 Umsatz")
+    st.subheader("💰 Umsatz")
     
-    # Berechne Gesamtumsatz
-    total_umsatz = relevant_buchungen['Betrag'].sum() + wellpass_today_count * WELLPASS_WERT
-    playtomic_umsatz = relevant_buchungen['Betrag'].sum()
-    wellpass_umsatz = wellpass_today_count * WELLPASS_WERT
-    
-    # Aufschlüsselung nach Sport
-    padel_revenue = relevant_buchungen[
-        relevant_buchungen['Sport'].str.upper() == 'PADEL'
-    ]['Betrag'].sum()
-    
-    tennis_revenue = relevant_buchungen[
-        relevant_buchungen['Sport'].str.upper() == 'TENNIS'
-    ]['Betrag'].sum()
-    
-    # Aufschlüsselung nach Produkttyp
-    courts_revenue = relevant_buchungen[
-        relevant_buchungen['Produkttyp'].isin(['Reservierung'])
-    ]['Betrag'].sum()
-    
-    matches_revenue = relevant_buchungen[
-        relevant_buchungen['Produkttyp'].isin(['Open Match'])
-    ]['Betrag'].sum()
-    
-    extras_revenue = relevant_buchungen[
-        relevant_buchungen['Produkttyp'].isin(['Bälle', 'Schläger'])
-    ]['Betrag'].sum()
-    
-    # Prozentsätze
-    playtomic_pct = (playtomic_umsatz / total_umsatz * 100) if total_umsatz > 0 else 0
-    padel_pct = (padel_revenue / playtomic_umsatz * 100) if playtomic_umsatz > 0 else 0
-    tennis_pct = (tennis_revenue / playtomic_umsatz * 100) if playtomic_umsatz > 0 else 0
-    courts_pct = (courts_revenue / playtomic_umsatz * 100) if playtomic_umsatz > 0 else 0
-    matches_pct = (matches_revenue / playtomic_umsatz * 100) if playtomic_umsatz > 0 else 0
-    extras_pct = (extras_revenue / playtomic_umsatz * 100) if playtomic_umsatz > 0 else 0
-    wellpass_pct = (wellpass_umsatz / total_umsatz * 100) if total_umsatz > 0 else 0
-    
-    # Metric Cards in 2 Reihen
     col1, col2, col3, col4, col5, col6 = st.columns(6)
-    
     with col1:
-        st.metric(
-            label="💰 Gesamt",
-            value=format_currency(total_umsatz)
-        )
-    
+        st.metric("💰 Gesamt", f"€{gesamt_mit_wellpass:.2f}")
     with col2:
-        st.metric(
-            label="🎾 Playtomic",
-            value=format_currency(playtomic_umsatz),
-            delta=f"{playtomic_pct:.0f}%"
-        )
-    
+        pct = (revenue['gesamt'] / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+        st.metric("🎾 Playtomic", f"€{revenue['gesamt']:.2f}", f"{pct:.0f}%")
     with col3:
-        st.metric(
-            label="🎾 Padel",
-            value=format_currency(padel_revenue),
-            delta=f"{padel_pct:.0f}%"
-        )
-    
+        pct = (revenue['reservierung'] / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+        st.metric("🏟️ Courts", f"€{revenue['reservierung']:.2f}", f"{pct:.0f}%")
     with col4:
-        st.metric(
-            label="🎾 Tennis",
-            value=format_currency(tennis_revenue),
-            delta=f"{tennis_pct:.0f}%"
-        )
-    
+        pct = (revenue['open_match'] / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+        st.metric("🏆 Matches", f"€{revenue['open_match']:.2f}", f"{pct:.0f}%")
     with col5:
-        st.metric(
-            label="🏟️ Courts",
-            value=format_currency(courts_revenue),
-            delta=f"{courts_pct:.0f}%"
-        )
-    
+        extras = revenue['baelle'] + revenue['schlaeger']
+        pct = (extras / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+        st.metric("🎾 Extras", f"€{extras:.2f}", f"{pct:.0f}%")
     with col6:
-        st.metric(
-            label="🏆 Matches",
-            value=format_currency(matches_revenue),
-            delta=f"{matches_pct:.0f}%"
-        )
+        pct = (wellpass_revenue / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+        st.metric("💳 Wellpass", f"€{wellpass_revenue:.2f}", f"{wellpass_unique_checkins} P. ({pct:.0f}%)")
     
-    # Zweite Reihe
-    col7, col8, col9, col10, col11, col12 = st.columns(6)
-    
-    with col7:
-        st.metric(
-            label="🎾 Extras",
-            value=format_currency(extras_revenue),
-            delta=f"{extras_pct:.0f}%"
-        )
-    
-    with col8:
-        wellpass_count_str = f"{wellpass_today_count} P."
-        st.metric(
-            label="💳 Wellpass",
-            value=format_currency(wellpass_umsatz),
-            delta=f"{wellpass_count_str} ({wellpass_pct:.0f}%)"
-        )
-    
-    # Leere Zellen für optische Balance
-    for i in range(9, 12):
-        st.empty()
-
+    if gesamt_mit_wellpass > 0:
+        fig = go.Figure(data=[go.Pie(
+            labels=['Courts', 'Matches', 'Extras', 'Wellpass'],
+            values=[revenue['reservierung'], revenue['open_match'], extras, wellpass_revenue],
+            hole=.3
+        )])
+        fig.update_layout(title="Verteilung", height=300)
+        st.plotly_chart(fig, use_container_width=True)
     
     st.markdown("---")
     
@@ -2385,89 +2297,79 @@ with tabs[0]:
         st.markdown("---")
         st.info("ℹ️ **Test:** Lade Customer-CSV!")
 
-# TAB 2: MONATSANSICHT
-with tabs[1]:
-    st.markdown("#### 📊 Monatliche Übersicht")
+with tab2:
+    st.subheader("📊 Monat")
     
-    # Dropdown für Monat/Jahr
-    col_month, col_year = st.columns(2)
+    today = date.today()
+    years = list(range(2024, today.year + 1))
+    months = list(range(1, 13))
+    month_names = {
+        1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April',
+        5: 'Mai', 6: 'Juni', 7: 'Juli', 8: 'August',
+        9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'
+    }
     
-    with col_year:
-        selected_year = st.selectbox(
-            "Jahr",
-            options=range(2024, 2026),
-            index=0
-        )
+    col1, col2 = st.columns(2)
+    with col1:
+        selected_year = st.selectbox("Jahr:", years, index=len(years)-1)
+    with col2:
+        selected_month = st.selectbox("Monat:", months, format_func=lambda x: month_names[x], index=today.month-1)
     
-    with col_month:
-        months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
-                  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
-        month_idx = st.selectbox(
-            "Monat",
-            options=range(1, 13),
-            format_func=lambda x: months[x-1],
-            index=datetime.now().month - 1
-        )
+    first_day = date(selected_year, selected_month, 1)
+    last_day = date(selected_year, selected_month, monthrange(selected_year, selected_month)[1])
     
-    # Filter für ausgewählten Monat
-    monthly_data = relevant_buchungen[
-        (pd.to_datetime(relevant_buchungen['Datum']).dt.month == month_idx) &
-        (pd.to_datetime(relevant_buchungen['Datum']).dt.year == selected_year)
-    ].copy()
+    buchungen = loadsheet("buchungen")
     
-    # Berechnung
-    monthly_total = monthly_data['Betrag'].sum() + monthly_wellpass * WELLPASS_WERT
-    monthly_playtomic = monthly_data['Betrag'].sum()
-    monthly_padel = monthly_data[
-        monthly_data['Sport'].str.upper() == 'PADEL'
-    ]['Betrag'].sum()
-    monthly_tennis = monthly_data[
-        monthly_data['Sport'].str.upper() == 'TENNIS'
-    ]['Betrag'].sum()
-    monthly_courts = monthly_data[
-        monthly_data['Produkttyp'] == 'Reservierung'
-    ]['Betrag'].sum()
-    monthly_matches = monthly_data[
-        monthly_data['Produkttyp'] == 'Open Match'
-    ]['Betrag'].sum()
-    monthly_extras = monthly_data[
-        monthly_data['Produkttyp'].isin(['Bälle', 'Schläger'])
-    ]['Betrag'].sum()
-    monthly_wellpass_umsatz = monthly_wellpass * WELLPASS_WERT
+    if buchungen.empty or 'analysis_date' not in buchungen.columns:
+        st.info("📦 Keine Daten - CSVs hochladen!")
+        st.stop()
     
-    # Prozentsätze für Monthly
-    monthly_pct_padel = (monthly_padel / monthly_playtomic * 100) if monthly_playtomic > 0 else 0
-    monthly_pct_tennis = (monthly_tennis / monthly_playtomic * 100) if monthly_playtomic > 0 else 0
-    monthly_pct_courts = (monthly_courts / monthly_playtomic * 100) if monthly_playtomic > 0 else 0
-    monthly_pct_matches = (monthly_matches / monthly_playtomic * 100) if monthly_playtomic > 0 else 0
-    monthly_pct_extras = (monthly_extras / monthly_playtomic * 100) if monthly_playtomic > 0 else 0
-    monthly_pct_wellpass = (monthly_wellpass_umsatz / monthly_total * 100) if monthly_total > 0 else 0
+    buchungen['date_obj'] = pd.to_datetime(buchungen['analysis_date'], errors='coerce').dt.date
+    month_data = buchungen[(buchungen['date_obj'] >= first_day) & (buchungen['date_obj'] <= last_day)]
     
-    # Metric Cards - 2. Zeile
+    if month_data.empty:
+        st.warning(f"⚠️ Keine Daten für {month_names[selected_month]} {selected_year}")
+        st.stop()
+    
+    total_buchungen = len(month_data)
+    relevant_buchungen = len(month_data[month_data['Relevant'] == 'Ja'])
+    fehler_gesamt = len(month_data[month_data['Fehler'] == 'Ja'])
+    
+    checkins = loadsheet("checkins")
+    if not checkins.empty and 'analysis_date' in checkins.columns:
+        checkins['date_obj'] = pd.to_datetime(checkins['analysis_date'], errors='coerce').dt.date
+        month_checkins = checkins[(checkins['date_obj'] >= first_day) & (checkins['date_obj'] <= last_day)]
+        
+        if not month_checkins.empty:
+            unique_daily_checkins = month_checkins.drop_duplicates(subset=['analysis_date', 'Name_norm'])
+            wellpass_checkins_monat = len(unique_daily_checkins)
+        else:
+            wellpass_checkins_monat = 0
+    else:
+        wellpass_checkins_monat = 0
+    
+    revenue_month = get_revenue_from_raw(start_date=first_day, end_date=last_day)
+    wellpass_revenue_monat = wellpass_checkins_monat * WELLPASS_WERT
+    gesamt_umsatz = revenue_month['gesamt'] + wellpass_revenue_monat
+    
+    st.markdown("---")
+    st.markdown(f"### 📅 {month_names[selected_month]} {selected_year}")
+    
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     
     with col1:
-        st.metric("💰 Gesamt", format_currency(monthly_total))
+        st.metric("💰 Gesamt", f"€{gesamt_umsatz:.2f}")
     with col2:
-        st.metric("🎾 Playtomic", format_currency(monthly_playtomic))
+        st.metric("🎾 Playtomic", f"€{revenue_month['gesamt']:.2f}")
     with col3:
-        st.metric("🎾 Padel", format_currency(monthly_padel), f"{monthly_pct_padel:.0f}%")
+        st.metric("💳 Wellpass", f"€{wellpass_revenue_monat:.2f}", f"{wellpass_checkins_monat} CI")
     with col4:
-        st.metric("🎾 Tennis", format_currency(monthly_tennis), f"{monthly_pct_tennis:.0f}%")
+        st.metric("📊 Buchungen", f"{total_buchungen}")
     with col5:
-        st.metric("🏟️ Courts", format_currency(monthly_courts), f"{monthly_pct_courts:.0f}%")
+        st.metric("🎯 Relevant", f"{relevant_buchungen}")
     with col6:
-        st.metric("🏆 Matches", format_currency(monthly_matches), f"{monthly_pct_matches:.0f}%")
-    
-    # Zweite Zeile
-    col7, col8, col9, col10, col11, col12 = st.columns(6)
-    
-    with col7:
-        st.metric("🎾 Extras", format_currency(monthly_extras), f"{monthly_pct_extras:.0f}%")
-    with col8:
-        wellpass_str = f"{monthly_wellpass} P."
-        st.metric("💳 Wellpass", format_currency(monthly_wellpass_umsatz), f"{wellpass_str} ({monthly_pct_wellpass:.0f}%)")
-
+        fehler_rate = (fehler_gesamt/relevant_buchungen*100) if relevant_buchungen > 0 else 0
+        st.metric("❌ Fehler", f"{fehler_gesamt}", f"{fehler_rate:.1f}%")
     
     st.markdown("---")
     
