@@ -446,11 +446,16 @@ def parse_date_safe(date_val):
         return None
 
 def parse_csv(f):
+    """
+    Parse CSV mit Auto-Encoding & Delimiter-Detection.
+    Skippt Playtomic-Meta-Zeilen am Anfang.
+    """
     try:
         content = f.read()
         f.seek(0)
-        
         text = None
+        
+        # Encoding detection
         for encoding in ['utf-8-sig', 'utf-8', 'latin-1', 'cp1252']:
             try:
                 text = content.decode(encoding)
@@ -461,6 +466,21 @@ def parse_csv(f):
         if text is None:
             return pd.DataFrame()
         
+        # ⭐ WICHTIG: Finde wo die echten Spalten anfangen
+        # Playtomic hat Meta-Zeilen am Anfang (Subtotal, Taxes, Total, etc.)
+        lines = text.split('\n')
+        header_row_idx = 0
+        
+        for idx, line in enumerate(lines):
+            # Suche nach echten Spalten-Headern
+            if any(keyword in line for keyword in [
+                'Corporate Name', 'User name', 'Service date', 
+                'Club payment id', 'Sport'
+            ]):
+                header_row_idx = idx
+                break
+        
+        # Delimiter detection
         sample = text[:2000]
         semicolon_count = sample.count(';')
         comma_count = sample.count(',')
@@ -473,30 +493,44 @@ def parse_csv(f):
         else:
             delimiter = ','
         
+        # Parse mit skiprows ← FIX!
         df = pd.read_csv(
-            io.StringIO(text), 
+            io.StringIO(text),
             sep=delimiter,
             engine='python',
             on_bad_lines='skip',
-            encoding_errors='ignore'
+            encoding_errors='ignore',
+            skiprows=header_row_idx  # Überspringt Meta-Zeilen
         )
+        
+        # Spalten-Namen säubern
+        df.columns = df.columns.str.strip()
         
         if len(df.columns) > 1:
             return df
-        
-    except:
+    
+    except Exception as e:
         pass
     
+    # Fallback
     for sep in [None, ';', ',', '\t']:
         try:
             f.seek(0)
-            df = pd.read_csv(f, sep=sep, engine='python', encoding='utf-8-sig', on_bad_lines='skip')
+            df = pd.read_csv(
+                f,
+                sep=sep,
+                engine='python',
+                encoding='utf-8-sig',
+                on_bad_lines='skip',
+                skiprows=range(0, 10)  # Überspring erste 10 Zeilen
+            )
             if len(df.columns) > 1:
                 return df
         except:
             continue
     
     return pd.DataFrame()
+
 
 def color_fehler(val):
     if val == 'Ja':
