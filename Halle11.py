@@ -41,7 +41,7 @@ PADEL_TERMS = {
         '🎯 Cuchilla schärft...',
         '💥 Remate kommt...',
         '🏆 Andy checkt die Stats...',
-        '🎾 Die halle11 dreht auf...',
+        '🎾 Die Halle 11 dreht auf...',
         '⚡ Famiglia Schneiderhan powered!'
     ],
     'verarbeite': [
@@ -53,7 +53,7 @@ PADEL_TERMS = {
         '🎯 Marcel rechnet...',
         '⚡ Tanja organisiert...',
         '🎾 Der Berg wird gerockt!',
-        '💪 halle11 Power Mode!'
+        '💪 Halle 11 Power Mode!'
     ],
     'speichere': [
         '📝 Rulo wird aufgerollt...',
@@ -61,7 +61,7 @@ PADEL_TERMS = {
         '🏐 Rebote wird gebucht...',
         '🚪 Verja geschlossen...',
         '💾 Stats im Berg gespeichert...',
-        '✨ halle11 Daten sicher!',
+        '✨ Halle 11 Daten sicher!',
         '🎾 Dein Spiel ist dokumentiert!',
         '👑 Andy nickt zustimmend...',
         '🏆 Noch so ein Match und du bist Top 10!'
@@ -73,7 +73,7 @@ PADEL_TERMS = {
         '😅 Oops - Check-In vergessen?',
         '🤔 Andy fragt nach...',
         '📱 Wellpass-Check erforderlich!',
-        '⚠️ halle11 braucht deine Signatur!'
+        '⚠️ Halle 11 braucht deine Signatur!'
     ],
 }
 
@@ -423,51 +423,6 @@ def normalize_name(name):
             .replace('ä', 'ae').replace('ö', 'oe').replace('ü', 'ue')
             .replace('ß', 'ss').replace('-', ' ').replace('  ', ' '))
 
-def get_sport_type(row: pd.Series) -> str:
-    """
-    Determine if booking is PADEL or TENNIS based on 'Sport' column.
-    
-    Parameters
-    ----------
-    row : pd.Series
-        Booking row from Playtomic CSV
-    
-    Returns
-    -------
-    str
-        '🎾 Padel' or '🎾 Tennis' or 'Unbekannt'
-    """
-    try:
-        sport = str(row.get('Sport', '')).strip().upper()
-        if sport == 'PADEL':
-            return '🎾 Padel'
-        elif sport == 'TENNIS':
-            return '🎾 Tennis'
-        else:
-            return 'Unbekannt'
-    except Exception:
-        return 'Unbekannt'
-
-def format_currency(amount: float) -> str:
-    """
-    Format amount as currency string (EUR with 2 decimals).
-    
-    Parameters
-    ----------
-    amount : float
-        Amount in EUR
-    
-    Returns
-    -------
-    str
-        Formatted string like "€13,50"
-    """
-    try:
-        val = float(amount)
-        return f"€{val:,.2f}".replace(",", "TEMP").replace(".", ",").replace("TEMP", ".")
-    except Exception:
-        return "€0,00"
-
 def parse_date_safe(date_val):
     if pd.isna(date_val) or date_val == '':
         return None
@@ -659,7 +614,7 @@ def check_password():
     if st.session_state.get("password_correct", False):
         return True
     
-    st.markdown("<h1 style='text-align: center;'>🎾 halle11 Dashboard</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>🎾 Halle 11 Dashboard</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #2c3e50;'>🔒 Anmelden</h3>", unsafe_allow_html=True)
     st.markdown("---")
     
@@ -810,7 +765,7 @@ Wir haben deinen Wellpass-Check-In noch nicht im System. Wär klasse, wenn du ih
 
 Vielen Dank dir und bis ganz bald auf dem Court! 🙌
 Liebe Grüße
-Andy vom halle11
+Andy vom Halle 11
 
 ---
 _Dies ist eine automatische Nachricht. Bei Rückfragen bitte an info@padel-port.com_
@@ -827,7 +782,7 @@ def test_whatsapp_connection():
     to_number = st.secrets.get("twilio", {}).get("whatsapp_to")
     
     message = f"""
-🎾 *halle11 Dashboard*
+🎾 *Halle 11 Dashboard*
 
 ✅ WhatsApp-Integration funktioniert!
 
@@ -1518,7 +1473,7 @@ def render_learned_matches_manager():
 # MAIN APP
 # ========================================
 
-st.set_page_config(page_title="halle11 Dashboard", layout="wide", page_icon="🎾")
+st.set_page_config(page_title="Halle 11 Dashboard", layout="wide", page_icon="🎾")
 
 st.markdown("""
 <style>
@@ -1571,7 +1526,7 @@ if not st.session_state.data_loaded:
             st.session_state.current_date = latest_date.strftime("%Y-%m-%d")
             st.session_state.data_loaded = True
 
-st.markdown("<h1 style='text-align: center;'>🎾 halle11 Dashboard</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🎾 Halle 11 Dashboard</h1>", unsafe_allow_html=True)
 
 # ========================================
 # SIDEBAR
@@ -2551,9 +2506,9 @@ col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     st.markdown(
         '<div style="text-align: center; color: #666; font-size: 12px;">'
-        '🎾 <b>halle11 Dashboard v20.1 FINAL</b><br>'
+        '🎾 <b>Halle 11 Dashboard v20.1 FINAL</b><br>'
         '🚢 <b>Dock In. Game On.</b><br>'
-        'Made with ❤️ for halle11 | 🍪 Cookie-Login | 🔄 Smart Duplikat-Filter | 📊 Synchronisierte Navigation'
+        'Made with ❤️ for Halle 11 | 🍪 Cookie-Login | 🔄 Smart Duplikat-Filter | 📊 Synchronisierte Navigation'
         '</div>', 
         unsafe_allow_html=True
     )
