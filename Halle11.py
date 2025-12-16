@@ -1456,14 +1456,40 @@ with tab1:
         if ci_df is not None and not ci_df.empty:
             ci_view = ci_df.sort_values('Name').copy()
             
-            # Status-Badge vor Namen  
-            def add_gespielt_badge(row):
-                if row.get('Gespielt', 'Nein') == 'Ja':
-                    return f"🟢 {row['Name']}"
-                else:
-                    return f"🔴 {row['Name']}"
+            # Load name mapping for inverse lookup
+            mapping = load_name_mapping()
             
-            ci_view['Spieler'] = ci_view.apply(add_gespielt_badge, axis=1)
+            # Build inverse mapping: checkin_name_norm -> buchung_name_norm
+            inverse_mapping = {}
+            for buchung_name_norm, details in mapping.items():
+                if isinstance(details, dict):
+                    ci_norm = details.get("checkin_name", "")
+                else:
+                    ci_norm = details
+                if ci_norm:
+                    inverse_mapping[ci_norm] = buchung_name_norm
+            
+            # Get all booking names for today (normalized)
+            booking_names_today = set(df['Name_norm'].tolist()) if 'Name_norm' in df.columns else set()
+            
+            # Status-Badge mit Mapping-Berücksichtigung
+            def add_gespielt_badge_with_mapping(row):
+                ci_name_norm = row.get('Name_norm', '')
+                
+                # 1) Direct match: Check-in name exists in bookings
+                if ci_name_norm in booking_names_today:
+                    return f"🟢 {row['Name']}"
+                
+                # 2) Mapped match: Check-in name was mapped to a booking name
+                if ci_name_norm in inverse_mapping:
+                    mapped_buchung_name = inverse_mapping[ci_name_norm]
+                    if mapped_buchung_name in booking_names_today:
+                        return f"🟢 {row['Name']}"
+                
+                # 3) No match found
+                return f"🔴 {row['Name']}"
+            
+            ci_view['Spieler'] = ci_view.apply(add_gespielt_badge_with_mapping, axis=1)
             
             display_cols_ci = ['Spieler', 'Checkin_Zeit']
             
