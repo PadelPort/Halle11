@@ -1386,11 +1386,27 @@ with tab1:
     wellpass_revenue = wellpass_unique_checkins * wellpass_wert_tag
     gesamt_mit_wellpass = revenue['gesamt'] + wellpass_revenue
     
+    
+    # ✅ VORWOCHEN-VERGLEICH
+    last_week_date = curr_date - timedelta(days=7)
+    last_week_str = last_week_date.strftime("%Y-%m-%d")
+    
+    revenue_last_week = get_revenue_from_raw(date_str=last_week_str)
+    wellpass_last_week = get_unique_wellpass_checkins(last_week_str)
+    wellpass_rev_last_week = wellpass_last_week * wellpass_wert_tag
+    gesamt_last_week = revenue_last_week['gesamt'] + wellpass_rev_last_week
+    
+    # Calculate deltas
+    delta_gesamt = gesamt_mit_wellpass - gesamt_last_week
+    delta_pct = ((gesamt_mit_wellpass / gesamt_last_week) - 1) * 100 if gesamt_last_week > 0 else 0
+    
+    
     # ✅ KOMPAKTE UMSATZ-ZEILE
     st.markdown("---")
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
-        st.metric("💰 Gesamt", f"€{gesamt_mit_wellpass:.2f}")
+        delta_str = f"{delta_pct:+.0f}% vs. Vorwoche" if gesamt_last_week > 0 else None
+        st.metric("💰 Gesamt", f"€{gesamt_mit_wellpass:.2f}", delta_str)
     with col2:
         st.metric("🎾 Padel", f"€{revenue['padel']:.2f}")
     with col3:
@@ -1510,22 +1526,83 @@ with tab1:
     # ✅ FEHLER-BEREICH
     fehler = df[df['Fehler'] == 'Ja'].copy()
     if not fehler.empty:
-        st.subheader(f"🛑 Offene Fehler ({len(fehler)})")
-        
         mapping = load_name_mapping()
         rejected_matches = load_rejected_matches()
         corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
+        
+        # Count open vs fixed
+        open_count = 0
+        fixed_count = 0
+        for idx, row in fehler.iterrows():
+            key = f"{row['Name_norm']}_{row['Datum']}_{row['Betrag']}"
+            is_behoben = False
+            if not corr.empty and 'key' in corr.columns:
+                match_corr = corr[corr['key'] == key]
+                if not match_corr.empty:
+                    is_behoben = bool(match_corr.iloc[0].get('behoben', False))
+            if is_behoben:
+                fixed_count += 1
+            else:
+                open_count += 1
+        
+        st.subheader(f"📋 Fehler-Status ({open_count} offen · {fixed_count} behoben)")
         
         for idx, row in fehler.iterrows():
             key = f"{row['Name_norm']}_{row['Datum']}_{row['Betrag']}"
             is_behoben = False
             if not corr.empty and 'key' in corr.columns:
-                match = corr[corr['key'] == key]
-                if not match.empty:
-                    is_behoben = bool(match.iloc[0].get('behoben', False))
+                match_corr = corr[corr['key'] == key]
+                if not match_corr.empty:
+                    is_behoben = bool(match_corr.iloc[0].get('behoben', False))
             
-            if is_behoben:
-                continue
+            whatsapp_sent = get_whatsapp_sent_time(row)
+            sport_icon = '🎾P' if str(row.get('Sport', '')).upper() == 'PADEL' else '🎾T'
+            
+            # Status-Icon based on behoben
+            status_icon = "🟢" if is_behoben else "🔴"
+            status_text = "Behoben" if is_behoben else "Offen"
+            
+            with st.expander(f"{status_icon} {row['Name']} | €{row['Betrag']} | {row.get('Service_Zeit', '')} {sport_icon} [{status_text}]", expanded=not is_behoben):
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    customer = get_customer_data(row['Name'])
+                    if customer:
+                        st.caption(f"📱 {customer['phone_number']} · 📧 {customer['email'][:30]}")
+                    else:
+                        st.caption("⚠️ Nicht im Customer-Sheet")
+                    
+                    if whatsapp_sent:
+                        st.caption(f"✅ WhatsApp: {whatsapp_sent.strftime('%d.%m. %H:%M')}")
+                
+                with col2:
+                    if is_behoben:
+                        # Button to reopen
+                        if st.button("🔄 Wieder öffnen", key=f"reopen_{key}", use_container_width=True):
+                            if not corr.empty and 'key' in corr.columns:
+                                corr = corr[corr['key'] != key]
+                                savesheet(corr, "corrections")
+                            st.rerun()
+                    else:
+                        if st.button("✅ Behoben", key=f"fix_{key}", use_container_width=True):
+                            if not corr.empty and 'key' in corr.columns:
+                                corr = corr[corr['key'] != key]
+                            corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': st.session_state.current_date, 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
+                            savesheet(corr, "corrections")
+                            st.rerun()
+                
+                # Only show matching interface if NOT behoben
+                if not is_behoben:
+                    render_name_matching_interface(row, ci_df, mapping, rejected_matches, fehler)
+                    
+                    st.markdown("---")
+                    col_wa1, col_wa2 = st.columns(2)
+                    with col_wa1:
+                        if st.button("📱 WhatsApp", key=f"wa_{key}", use_container_width=True):
+                            send_wellpass_whatsapp_to_player(row)
+                    with col_wa2:
+                        if st.button("🧪 Test", key=f"test_{key}", use_container_width=True):
+                            send_wellpass_whatsapp_test(row)
             
             whatsapp_sent = get_whatsapp_sent_time(row)
             sport_icon = '🎾P' if str(row.get('Sport', '')).upper() == 'PADEL' else '🎾T'
