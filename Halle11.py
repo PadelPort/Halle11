@@ -41,7 +41,7 @@ PADEL_TERMS = {
         '🎯 Cuchilla schärft...',
         '💥 Remate kommt...',
         '🏆 Andy checkt die Stats...',
-        '🎾 Die Halle 11 dreht auf...',
+        '🎾 halle11 dreht auf...',
         '⚡ Famiglia Schneiderhan powered!'
     ],
     'verarbeite': [
@@ -53,7 +53,7 @@ PADEL_TERMS = {
         '🎯 Marcel rechnet...',
         '⚡ Tanja organisiert...',
         '🎾 Der Berg wird gerockt!',
-        '💪 Halle 11 Power Mode!'
+        '💪 halle11 Power Mode!'
     ],
     'speichere': [
         '📝 Rulo wird aufgerollt...',
@@ -61,7 +61,7 @@ PADEL_TERMS = {
         '🏐 Rebote wird gebucht...',
         '🚪 Verja geschlossen...',
         '💾 Stats im Berg gespeichert...',
-        '✨ Halle 11 Daten sicher!',
+        '✨ halle11 Daten sicher!',
         '🎾 Dein Spiel ist dokumentiert!',
         '👑 Andy nickt zustimmend...',
         '🏆 Noch so ein Match und du bist Top 10!'
@@ -73,33 +73,24 @@ PADEL_TERMS = {
         '😅 Oops - Check-In vergessen?',
         '🤔 Andy fragt nach...',
         '📱 Wellpass-Check erforderlich!',
-        '⚠️ Halle 11 braucht deine Signatur!'
+        '⚠️ halle11 braucht deine Signatur!'
     ],
 }
 
 
 # ========================================
-# ✅ NEUE DYNAMISCHE CSV PARSER FUNKTIONEN
+# ✅ DYNAMISCHE CSV PARSER FUNKTIONEN
 # ========================================
 
 def parse_playtomic_csv(file_obj):
     """
     Dynamically parses Playtomic CSV files regardless of header row count.
     Automatically detects where the actual data starts by looking for key columns.
-    Works with both old (3 header rows) and new (9 header rows) CSV formats.
-    
-    Args:
-        file_obj: File-like object from Streamlit file uploader
-        
-    Returns:
-        pd.DataFrame: Parsed DataFrame with Playtomic data
     """
     try:
-        # Read entire file content
         content = file_obj.read()
         file_obj.seek(0)
         
-        # Try different encodings
         text = None
         for encoding in ['utf-8-sig', 'utf-8', 'latin-1', 'cp1252']:
             try:
@@ -112,13 +103,9 @@ def parse_playtomic_csv(file_obj):
             st.error("❌ CSV-Encoding konnte nicht erkannt werden")
             return pd.DataFrame()
         
-        # Split into lines
         lines = text.strip().split('\n')
-        
-        # Key columns that MUST exist in the header row
         required_columns = ['User name', 'Product SKU', 'Service date', 'Total']
         
-        # Find the header row by looking for required columns
         header_row_idx = None
         for i, line in enumerate(lines):
             if all(col in line for col in required_columns):
@@ -134,7 +121,6 @@ def parse_playtomic_csv(file_obj):
         
         st.info(f"✅ Header gefunden in Zeile {header_row_idx + 1}")
         
-        # Read CSV starting from header row
         file_obj.seek(0)
         df = pd.read_csv(
             file_obj,
@@ -145,14 +131,11 @@ def parse_playtomic_csv(file_obj):
             encoding='utf-8-sig'
         )
         
-        # Clean column names
         df.columns = df.columns.str.strip().str.replace('\ufeff', '')
         
-        # Verify required columns
         missing_cols = [col for col in required_columns if col not in df.columns]
         if missing_cols:
             st.error(f"❌ Fehlende Spalten: {missing_cols}")
-            st.info(f"📋 Gefundene Spalten: {list(df.columns)}")
             return pd.DataFrame()
         
         st.success(f"✅ {len(df)} Zeilen geladen")
@@ -164,16 +147,7 @@ def parse_playtomic_csv(file_obj):
 
 
 def parse_checkins_csv(file_obj):
-    """
-    Parses Wellpass Checkins CSV files.
-    Handles various formats and column naming conventions.
-    
-    Args:
-        file_obj: File-like object from Streamlit file uploader
-        
-    Returns:
-        pd.DataFrame: Parsed DataFrame with checkin data
-    """
+    """Parses Wellpass Checkins CSV files."""
     try:
         content = file_obj.read()
         file_obj.seek(0)
@@ -190,13 +164,11 @@ def parse_checkins_csv(file_obj):
             st.error("❌ Checkins CSV-Encoding nicht erkannt")
             return pd.DataFrame()
         
-        # Detect delimiter
         sample = text[:2000]
         semicolon_count = sample.count(';')
         comma_count = sample.count(',')
         delimiter = ';' if semicolon_count > comma_count else ','
         
-        # Find header row
         lines = text.strip().split('\n')
         header_row_idx = 0
         for i, line in enumerate(lines):
@@ -214,10 +186,8 @@ def parse_checkins_csv(file_obj):
             encoding='utf-8-sig'
         )
         
-        # Clean column names
         df.columns = df.columns.str.strip().str.replace('\ufeff', '').str.replace('"', '')
         
-        # Map column names
         column_mapping = {}
         for col in df.columns:
             col_lower = col.lower()
@@ -250,45 +220,7 @@ def get_random_padel_message(msg_type: str) -> str:
 
 def get_wellpass_wert(for_date: date) -> float:
     """Gibt den passenden Wellpass-Payout für ein Datum zurück."""
-    grenze = date(2025, 12, 1)
-    if for_date >= grenze:
-        return 12.50
     return 12.50
-
-def send_wellpass_template(to_phone_e164: str, firstname: str, playtime: str) -> bool:
-    """Sendet das Twilio WhatsApp-Template."""
-    try:
-        from twilio.rest import Client
-
-        twilio_conf = st.secrets.get("twilio", {})
-        account_sid = twilio_conf.get("account_sid")
-        auth_token = twilio_conf.get("auth_token")
-        from_number = twilio_conf.get("whatsapp_from")
-
-        if not all([account_sid, auth_token, from_number]):
-            st.error("❌ Twilio-Konfiguration unvollständig.")
-            return False
-
-        client = Client(account_sid, auth_token)
-
-        if not to_phone_e164.startswith("+"):
-            to_phone_e164 = "+49" + to_phone_e164.lstrip("0").replace(" ", "")
-        to_number = f"whatsapp:{to_phone_e164}"
-
-        message = client.messages.create(
-            from_=from_number,
-            to=to_number,
-            content_sid=None,
-            body=None,
-            provide_feedback=False,
-        )
-
-        st.success(f"✅ WhatsApp-Template gesendet! SID: {message.sid}")
-        return True
-
-    except Exception as e:
-        st.error(f"❌ WhatsApp-Fehler: {e}")
-        return False
 
 def send_wellpass_whatsapp_to_player(fehler_row: pd.Series) -> bool:
     """Sendet WhatsApp-Template-Nachricht an den Spieler."""
@@ -328,7 +260,6 @@ def send_wellpass_whatsapp_to_player(fehler_row: pd.Series) -> bool:
 
         full_name = str(fehler_row.get("Name", "")).strip()
         firstname = full_name.split()[0] if full_name else "Spieler"
-
         spielzeit = str(fehler_row.get("Service_Zeit", "") or "").strip() or "deiner gebuchten Zeit"
 
         service_date = fehler_row.get("Datum", "")
@@ -338,16 +269,12 @@ def send_wellpass_whatsapp_to_player(fehler_row: pd.Series) -> bool:
             service_date_str = str(service_date) if service_date else ""
 
         client = Client(account_sid, auth_token)
-
         msg = client.messages.create(
             from_=from_number,
             to=to_number,
             content_sid=content_sid,
             content_variables=json.dumps({
-                "1": firstname,
-                "2": spielzeit,
-                "3": WELLPASS_QR_LINK,
-                "4": service_date_str,
+                "1": firstname, "2": spielzeit, "3": WELLPASS_QR_LINK, "4": service_date_str,
             }),
         )
 
@@ -386,7 +313,6 @@ def send_wellpass_whatsapp_test(fehler_row: pd.Series) -> bool:
 
         full_name = str(fehler_row.get("Name", "")).strip()
         firstname = full_name.split()[0] if full_name else "Spieler"
-
         spielzeit = str(fehler_row.get("Service_Zeit", "") or "").strip() or "deiner gebuchten Zeit"
 
         service_date = fehler_row.get("Datum", "")
@@ -396,16 +322,12 @@ def send_wellpass_whatsapp_test(fehler_row: pd.Series) -> bool:
             service_date_str = str(service_date) if service_date else ""
 
         client = Client(account_sid, auth_token)
-
         msg = client.messages.create(
             from_=from_number,
             to=to_number,
             content_sid=content_sid,
             content_variables=json.dumps({
-                "1": firstname + " (TEST)",
-                "2": spielzeit,
-                "3": WELLPASS_QR_LINK,
-                "4": service_date_str,
+                "1": firstname + " (TEST)", "2": spielzeit, "3": WELLPASS_QR_LINK, "4": service_date_str,
             }),
         )
 
@@ -437,15 +359,9 @@ def parse_date_safe(date_val):
         return None
     
     date_str = str(date_val).strip()
-    
     formats = [
-        '%d/%m/%Y %H:%M',  # NEW FORMAT: 09/12/2025 22:00
-        '%d/%m/%Y',
-        '%Y-%m-%d %H:%M:%S',
-        '%Y-%m-%d',
-        '%d.%m.%Y %H:%M',
-        '%d.%m.%Y',
-        '%Y%m%d'
+        '%d/%m/%Y %H:%M', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d',
+        '%d.%m.%Y %H:%M', '%d.%m.%Y', '%Y%m%d'
     ]
     
     for fmt in formats:
@@ -488,17 +404,10 @@ def parse_csv(f):
         else:
             delimiter = ','
         
-        df = pd.read_csv(
-            io.StringIO(text), 
-            sep=delimiter,
-            engine='python',
-            on_bad_lines='skip',
-            encoding_errors='ignore'
-        )
+        df = pd.read_csv(io.StringIO(text), sep=delimiter, engine='python', on_bad_lines='skip', encoding_errors='ignore')
         
         if len(df.columns) > 1:
             return df
-        
     except:
         pass
     
@@ -513,12 +422,15 @@ def parse_csv(f):
     
     return pd.DataFrame()
 
-def color_fehler(val):
+
+def color_status(val):
+    """Färbt Ja grün und Nein rot."""
     if val == 'Ja':
-        return 'background-color: #ffcccc; color: #cc0000; font-weight: bold'
+        return 'background-color: #d4edda; color: #155724; font-weight: bold'
     elif val == 'Nein':
-        return 'background-color: #ccffcc; color: #006600; font-weight: bold'
+        return 'background-color: #f8d7da; color: #721c24; font-weight: bold'
     return ''
+
 
 def optimize_dataframe(df):
     for col in df.columns:
@@ -556,11 +468,7 @@ def save_auth_cookie():
             auth_data = auth_data[auth_data['expires'] > now]
         
         expires = now + timedelta(days=30)
-        new_cookie = pd.DataFrame([{
-            'cookie_hash': cookie_hash,
-            'timestamp': now.isoformat(),
-            'expires': expires.isoformat()
-        }])
+        new_cookie = pd.DataFrame([{'cookie_hash': cookie_hash, 'timestamp': now.isoformat(), 'expires': expires.isoformat()}])
         
         auth_data = pd.concat([auth_data, new_cookie], ignore_index=True)
         auth_data = auth_data.drop_duplicates(subset=['cookie_hash'], keep='last')
@@ -615,8 +523,8 @@ def check_password():
     if st.session_state.get("password_correct", False):
         return True
     
-    st.markdown("<h1 style='text-align: center;'>🎾🏔️ Halle 11 Dashboard</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; color: #2c3e50;'>🔒 Anmelden</h3>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>🎾 halle11</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #666;'>🔒 Login</h3>", unsafe_allow_html=True)
     st.markdown("---")
     
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -627,7 +535,7 @@ def check_password():
             st.error("😕 Falsches Passwort!")
         
         st.success("🍪 30 Tage eingeloggt bleiben")
-        st.caption("💡 Andy approved! 👑")
+        st.caption("⚡ Famiglia Schneiderhan powered")
     
     return False
 
@@ -715,28 +623,23 @@ def send_fehler_notification_with_link(fehler_row, to_player=False):
     
     full_name = fehler_row['Name']
     first_name = full_name.split()[0] if ' ' in full_name else full_name
-    
     service_zeit = fehler_row.get('Service_Zeit', '')
     spielinfo = f"Du hast um {service_zeit} Uhr gespielt." if service_zeit else ""
 
     message = f"""
 🎾 Hey {first_name}!
 
-Schön, dass du in der Halle 11 warst! 🏔️
+Schön, dass du bei halle11 warst! 🏔️
 
 {spielinfo}
 
 Kleine Bitte:
 Wir haben deinen Wellpass-Check-In noch nicht im System. Wär klasse, wenn du ihn schnell nachholen könntest!
 
-👉 QR-Code für den Check-In:
-{WELLPASS_QR_LINK}
+👉 QR-Code: {WELLPASS_QR_LINK}
 
-Vielen Dank und bis bald! 🙌
-Dein Halle 11 Team
-
----
-_Automatische Nachricht | info@halle11.de_
+Danke & bis bald!
+Dein halle11 Team
 """.strip()
 
     success = send_whatsapp_message(to_number, message)
@@ -775,10 +678,7 @@ def get_customer_data(player_name):
 def get_gsheet_client():
     try:
         creds_dict = dict(st.secrets["gcp_service_account"])
-        scopes = [
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive"
-        ]
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         client = gspread.authorize(credentials)
         return client.open_by_key(st.secrets["google_sheets"]["sheet_id"])
@@ -878,7 +778,7 @@ def save_playtomic_raw(df):
                 st.success(f"✅ {len(df_new)} neue Einträge!")
                 return True
             else:
-                st.info("ℹ️ Keine neuen Daten (alle bereits vorhanden)")
+                st.info("ℹ️ Keine neuen Daten")
                 return False
         else:
             savesheet(df, "playtomic_raw")
@@ -891,20 +791,15 @@ def save_playtomic_raw(df):
 
 
 # ========================================
-# ✅ NEUE REVENUE-FUNKTION MIT TENNIS/PADEL SPLIT
+# REVENUE-FUNKTION MIT TENNIS/PADEL SPLIT
 # ========================================
 
 def get_revenue_from_raw(date_str=None, start_date=None, end_date=None):
-    """
-    Berechnet Umsätze aus Raw-Daten mit Tennis/Padel Unterscheidung.
-    """
+    """Berechnet Umsätze aus Raw-Daten mit Tennis/Padel Unterscheidung."""
     raw_data = loadsheet("playtomic_raw")
     
     if raw_data.empty:
-        return {
-            'gesamt': 0, 'padel': 0, 'tennis': 0,
-            'reservierung': 0, 'baelle': 0, 'schlaeger': 0, 'sonstige': 0
-        }
+        return {'gesamt': 0, 'padel': 0, 'tennis': 0, 'reservierung': 0, 'baelle': 0, 'schlaeger': 0, 'sonstige': 0}
     
     raw_data['Service_date_clean'] = raw_data['Service date'].apply(parse_date_safe)
     raw_data = raw_data.dropna(subset=['Service_date_clean'])
@@ -929,19 +824,14 @@ def get_revenue_from_raw(date_str=None, start_date=None, end_date=None):
     filtered['Total_clean'] = filtered['Total'].apply(parse_total)
     gesamt = filtered['Total_clean'].sum()
     
-    revenue = {
-        'gesamt': gesamt, 'padel': 0, 'tennis': 0,
-        'reservierung': 0, 'baelle': 0, 'schlaeger': 0, 'sonstige': 0
-    }
+    revenue = {'gesamt': gesamt, 'padel': 0, 'tennis': 0, 'reservierung': 0, 'baelle': 0, 'schlaeger': 0, 'sonstige': 0}
     
-    # Sport-Split (Tennis vs Padel)
     if 'Sport' in filtered.columns:
         padel_data = filtered[filtered['Sport'].str.upper() == 'PADEL']
         tennis_data = filtered[filtered['Sport'].str.upper() == 'TENNIS']
         revenue['padel'] = padel_data['Total_clean'].sum()
         revenue['tennis'] = tennis_data['Total_clean'].sum()
     
-    # Produkt-Split
     if 'Product SKU' in filtered.columns:
         for product in filtered['Product SKU'].unique():
             if pd.isna(product):
@@ -1021,14 +911,10 @@ def save_name_mapping(mapping):
             })
         else:
             data.append({
-                'buchung_name': buchung_name,
-                'checkin_name': details,
-                'confidence': 100,
-                'timestamp': datetime.now().isoformat(),
-                'confirmed_by': 'legacy'
+                'buchung_name': buchung_name, 'checkin_name': details, 'confidence': 100,
+                'timestamp': datetime.now().isoformat(), 'confirmed_by': 'legacy'
             })
-    df = pd.DataFrame(data)
-    savesheet(df, "name_mapping")
+    savesheet(pd.DataFrame(data), "name_mapping")
 
 def load_rejected_matches():
     try:
@@ -1041,11 +927,7 @@ def load_rejected_matches():
 
 def save_rejected_match(buchung_name, checkin_name):
     df = loadsheet("rejected_matches", cols=['buchung_name', 'checkin_name', 'timestamp'])
-    new_row = pd.DataFrame([{
-        'buchung_name': buchung_name,
-        'checkin_name': checkin_name,
-        'timestamp': datetime.now().isoformat()
-    }])
+    new_row = pd.DataFrame([{'buchung_name': buchung_name, 'checkin_name': checkin_name, 'timestamp': datetime.now().isoformat()}])
     df = pd.concat([df, new_row], ignore_index=True)
     savesheet(df, "rejected_matches")
 
@@ -1071,14 +953,10 @@ def phonetic_similarity(name1, name2):
         for char in name[1:].lower():
             if char not in 'aeiouäöü':
                 simplified += char
-        replacements = {'z': 's', 'c': 'k', 'v': 'f', 'w': 'v', 'ph': 'f', 'dt': 't', 'th': 't'}
-        for old, new in replacements.items():
+        for old, new in {'z': 's', 'c': 'k', 'v': 'f', 'w': 'v', 'ph': 'f', 'dt': 't', 'th': 't'}.items():
             simplified = simplified.replace(old, new)
         return simplified
-    
-    s1 = simplify_phonetic(name1)
-    s2 = simplify_phonetic(name2)
-    return fuzz.ratio(s1, s2)
+    return fuzz.ratio(simplify_phonetic(name1), simplify_phonetic(name2))
 
 def advanced_fuzzy_match(query_name, candidate_names, mapping, rejected_matches, already_matched_checkins=None):
     if not candidate_names:
@@ -1104,8 +982,7 @@ def advanced_fuzzy_match(query_name, candidate_names, mapping, rejected_matches,
         
         token_score = fuzz.token_set_ratio(query_name, candidate)
         partial_score = fuzz.partial_ratio(query_name, candidate)
-        initials_match = check_initials_match(query_name, candidate)
-        initials_bonus = 20 if initials_match else 0
+        initials_bonus = 20 if check_initials_match(query_name, candidate) else 0
         phonetic_score = phonetic_similarity(query_name, candidate)
         
         final_score = token_score * 0.5 + partial_score * 0.2 + phonetic_score * 0.2 + initials_bonus
@@ -1135,101 +1012,60 @@ def render_name_matching_interface(fehler_row, ci_df, mapping, rejected_matches,
     matches = advanced_fuzzy_match(name, checkin_names, mapping, rejected_matches, already_matched)
     
     if not matches:
-        st.info("💡 Keine Vorschläge gefunden")
-        
-        st.markdown("### ✏️ Manuell zuordnen")
+        st.info("💡 Keine Vorschläge")
         col1, col2 = st.columns([3, 1])
         with col1:
-            manual_match = st.selectbox(
-                "Name wählen:",
-                options=[''] + [ci_df[ci_df['Name_norm'] == n].iloc[0]['Name'] for n in checkin_names],
-                key=f"manual_only_{key_base}",
-                label_visibility="collapsed"
-            )
+            manual_match = st.selectbox("Manuell:", options=[''] + [ci_df[ci_df['Name_norm'] == n].iloc[0]['Name'] for n in checkin_names], key=f"manual_only_{key_base}", label_visibility="collapsed")
         with col2:
             if st.button("💾", key=f"save_manual_only_{key_base}", disabled=not manual_match, use_container_width=True):
                 if manual_match:
                     manual_norm = ci_df[ci_df['Name'] == manual_match].iloc[0]['Name_norm']
-                    mapping[name] = {
-                        'checkin_name': manual_norm,
-                        'confidence': 100,
-                        'timestamp': datetime.now().isoformat(),
-                        'confirmed_by': 'manual'
-                    }
+                    mapping[name] = {'checkin_name': manual_norm, 'confidence': 100, 'timestamp': datetime.now().isoformat(), 'confirmed_by': 'manual'}
                     save_name_mapping(mapping)
-                    
                     corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
                     key = f"{fehler_row['Name_norm']}_{fehler_row['Datum']}_{fehler_row['Betrag']}"
                     if not corr.empty and 'key' in corr.columns:
                         corr = corr[corr['key'] != key]
-                    new_row_df = pd.DataFrame([{'key': key, 'date': fehler_row['Datum'], 'behoben': True, 'timestamp': datetime.now().isoformat()}])
-                    corr = pd.concat([corr, new_row_df], ignore_index=True)
+                    corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': fehler_row['Datum'], 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
                     savesheet(corr, "corrections")
-                    
-                    st.success("✅ Gespeichert!")
+                    st.success("✅")
                     time.sleep(0.5)
                     st.rerun()
         return
     
-    st.markdown("### 🔍 Vorschläge")
-    
+    st.markdown("##### 🔍 Vorschläge")
     for i, (match_name, score, match_type) in enumerate(matches):
         original_match = ci_df[ci_df['Name_norm'] == match_name].iloc[0]['Name']
+        confidence = "✅" if match_type == 'learned' else ("🟢" if score >= 90 else ("🟡" if score >= 75 else "🔴"))
         
-        if match_type == 'learned':
-            confidence = "✅ GELERNT"
-        elif score >= 90:
-            confidence = "🟢 SICHER"
-        elif score >= 75:
-            confidence = "🟡 WAHRSCH."
-        else:
-            confidence = "🔴 UNSICHER"
-        
-        with st.expander(f"**{i+1}.** {original_match} - {score}% - {confidence}", expanded=(i == 0 and score >= 75)):
-            col_info, col_actions = st.columns([3, 1])
-            
-            with col_info:
-                st.caption(f"🔍 {fehler_row['Name']} → ✅ {original_match}")
-            
-            with col_actions:
-                if st.button("✅", key=f"confirm_{key_base}_{i}", type="primary" if score >= 85 else "secondary", use_container_width=True):
-                    mapping[name] = {
-                        'checkin_name': match_name,
-                        'confidence': score,
-                        'timestamp': datetime.now().isoformat(),
-                        'confirmed_by': 'user'
-                    }
-                    save_name_mapping(mapping)
-                    
-                    if (name, match_name) in rejected_matches:
-                        remove_rejected_match(name, match_name)
-                    
-                    corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
-                    key = f"{fehler_row['Name_norm']}_{fehler_row['Datum']}_{fehler_row['Betrag']}"
-                    if not corr.empty and 'key' in corr.columns:
-                        corr = corr[corr['key'] != key]
-                    new_row_df = pd.DataFrame([{'key': key, 'date': fehler_row['Datum'], 'behoben': True, 'timestamp': datetime.now().isoformat()}])
-                    corr = pd.concat([corr, new_row_df], ignore_index=True)
-                    savesheet(corr, "corrections")
-                    
-                    st.success("✅")
-                    time.sleep(0.5)
-                    st.rerun()
-                
-                if st.button("❌", key=f"reject_{key_base}_{i}", use_container_width=True):
-                    save_rejected_match(name, match_name)
-                    st.warning("❌")
-                    time.sleep(0.5)
-                    st.rerun()
+        col1, col2, col3 = st.columns([3, 1, 1])
+        with col1:
+            st.caption(f"{confidence} {original_match} ({score}%)")
+        with col2:
+            if st.button("✅", key=f"confirm_{key_base}_{i}", use_container_width=True):
+                mapping[name] = {'checkin_name': match_name, 'confidence': score, 'timestamp': datetime.now().isoformat(), 'confirmed_by': 'user'}
+                save_name_mapping(mapping)
+                if (name, match_name) in rejected_matches:
+                    remove_rejected_match(name, match_name)
+                corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
+                key = f"{fehler_row['Name_norm']}_{fehler_row['Datum']}_{fehler_row['Betrag']}"
+                if not corr.empty and 'key' in corr.columns:
+                    corr = corr[corr['key'] != key]
+                corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': fehler_row['Datum'], 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
+                savesheet(corr, "corrections")
+                st.rerun()
+        with col3:
+            if st.button("❌", key=f"reject_{key_base}_{i}", use_container_width=True):
+                save_rejected_match(name, match_name)
+                st.rerun()
 
 def render_learned_matches_manager():
-    st.markdown("---")
     mapping = load_name_mapping()
     rejected = load_rejected_matches()
     
     with st.expander(f"🧠 Gelernte Matches ({len(mapping)} ✅, {len(rejected)} ❌)", expanded=False):
         if not mapping and not rejected:
-            st.info("Noch keine gelernten Matches")
+            st.info("Noch keine")
             return
         
         tab_learned, tab_rejected = st.tabs(["✅ Bestätigt", "❌ Abgelehnt"])
@@ -1238,20 +1074,14 @@ def render_learned_matches_manager():
             if mapping:
                 for buchung_name, details in mapping.items():
                     checkin_name = details['checkin_name'] if isinstance(details, dict) else details
-                    confidence = details.get('confidence', 100) if isinstance(details, dict) else 100
-                    
-                    col1, col2, col3 = st.columns([3, 2, 1])
+                    col1, col2 = st.columns([4, 1])
                     with col1:
                         st.caption(f"{buchung_name} → {checkin_name}")
                     with col2:
-                        st.caption(f"{confidence}%")
-                    with col3:
-                        if st.button("🗑️", key=f"del_map_{buchung_name}"):
+                        if st.button("🗑️", key=f"del_{buchung_name}"):
                             del mapping[buchung_name]
                             save_name_mapping(mapping)
                             st.rerun()
-            else:
-                st.info("Keine Matches")
         
         with tab_rejected:
             if rejected:
@@ -1263,21 +1093,18 @@ def render_learned_matches_manager():
                         if st.button("↩️", key=f"restore_{buchung_name}_{checkin_name}"):
                             remove_rejected_match(buchung_name, checkin_name)
                             st.rerun()
-            else:
-                st.info("Keine abgelehnten Matches")
 
 
 # ========================================
 # MAIN APP
 # ========================================
 
-st.set_page_config(page_title="Halle 11 Dashboard", layout="wide", page_icon="🏔️")
+st.set_page_config(page_title="halle11", layout="wide", page_icon="🎾")
 
 st.markdown("""
 <style>
     .stExpander { margin-bottom: 0.5rem !important; }
     .stExpander > div { padding: 0.5rem !important; }
-    .element-container { margin-bottom: 0.3rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1303,29 +1130,26 @@ if not st.session_state.data_loaded:
         latest_date = dates[0]
         snap = load_snapshot(latest_date.strftime("%Y-%m-%d"))
         ci_snap = load_checkins_snapshot(latest_date.strftime("%Y-%m-%d"))
-        
         if snap is not None:
             st.session_state.df_all = snap
             st.session_state.checkins_all = ci_snap if ci_snap is not None else pd.DataFrame()
             st.session_state.current_date = latest_date.strftime("%Y-%m-%d")
             st.session_state.data_loaded = True
 
-st.markdown("<h1 style='text-align: center;'>🎾🏔️ Halle 11 Dashboard</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #666;'>Famiglia Schneiderhan powered ⚡</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🎾 halle11</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #888; font-size: 14px;'>⚡ Famiglia Schneiderhan powered</p>", unsafe_allow_html=True)
 
 # ========================================
 # SIDEBAR
 # ========================================
 
-st.sidebar.title("🚀 Neue Analyse")
+st.sidebar.title("🚀 Analyse")
 
 p_file = st.sidebar.file_uploader("📁 Playtomic CSV", type=['csv'], key="playtomic")
 c_file = st.sidebar.file_uploader("📁 Checkins CSV", type=['csv'], key="checkins")
 
-# ✅ ANALYSE MIT DYNAMISCHEM CSV-PARSER
 if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file and c_file:
     with st.spinner(get_random_padel_message('verarbeite')):
-        # ✅ NEUER DYNAMISCHER PARSER
         pdf = parse_playtomic_csv(p_file)
         
         if pdf.empty:
@@ -1342,31 +1166,16 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
             playtomic_filtered = playtomic_filtered[playtomic_filtered['Payment status'] != 'Refund']
         
         rename_map = {
-            'User name': 'Name',
-            'Total': 'Betrag_raw',
-            'Service date': 'Servicedatum_raw',
-            'Product SKU': 'Product_SKU',
-            'Payment id': 'Payment id',
-            'Club payment id': 'Club payment id',
-            'Sport': 'Sport'  # ✅ Sport-Spalte übernehmen
+            'User name': 'Name', 'Total': 'Betrag_raw', 'Service date': 'Servicedatum_raw',
+            'Product SKU': 'Product_SKU', 'Payment id': 'Payment id', 'Club payment id': 'Club payment id', 'Sport': 'Sport'
         }
         if 'Service time' in playtomic_filtered.columns:
             rename_map['Service time'] = 'Service_Zeit'
         
         playtomic_filtered.rename(columns=rename_map, inplace=True)
-
-        # Zeit aus Service date extrahieren
         playtomic_filtered['Service_Zeit'] = playtomic_filtered['Servicedatum_raw'].astype(str).str.extract(r'(\d{2}:\d{2})')
-
         playtomic_filtered['Name_norm'] = playtomic_filtered['Name'].apply(normalize_name)
-        playtomic_filtered['Betrag_raw'] = (
-            playtomic_filtered['Betrag_raw']
-            .astype(str)
-            .str.replace('.', '', regex=False)
-            .str.replace(',', '.', regex=False)
-            .str.replace('€', '', regex=False)
-            .str.strip()
-        )
+        playtomic_filtered['Betrag_raw'] = playtomic_filtered['Betrag_raw'].astype(str).str.replace('.', '', regex=False).str.replace(',', '.', regex=False).str.replace('€', '', regex=False).str.strip()
         playtomic_filtered['Betrag'] = pd.to_numeric(playtomic_filtered['Betrag_raw'], errors='coerce').fillna(0)
         playtomic_filtered['Betrag'] = playtomic_filtered['Betrag'].apply(lambda x: f"{x:.2f}".replace(',', '.'))
         playtomic_filtered['Servicedatum'] = playtomic_filtered['Servicedatum_raw'].apply(parse_date_safe)
@@ -1382,14 +1191,12 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
         if 'Payment id' in playtomic_filtered.columns:
             playtomic_filtered = playtomic_filtered.drop_duplicates(subset=['Payment id'])
 
-        # ✅ Relevanz: Wellpass nur für PADEL (nicht Tennis)
-        is_padel = playtomic_filtered.get('Sport', '').str.upper() == 'PADEL'
+        # ✅ FIX: Relevanz für BEIDE Sportarten (Padel UND Tennis), unter 6€
         playtomic_filtered['Relevant'] = (
-            ((playtomic_filtered['Betrag_num'] < 7) & (playtomic_filtered['Betrag_num'] > 0)) | 
+            ((playtomic_filtered['Betrag_num'] < 6) & (playtomic_filtered['Betrag_num'] > 0)) | 
             (playtomic_filtered['Betrag_num'] == 0)
-        ) & is_padel
+        )
         
-        # Checkins parsen
         cdf = parse_checkins_csv(c_file)
         
         if cdf.empty:
@@ -1409,7 +1216,7 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
             cdf['Checkin_Zeit'] = cdf['Checkin_Zeit'].fillna('')
         
         all_dates = sorted(set(playtomic_filtered['Servicedatum'].dropna()) | set(cdf['Checkin_Datum'].dropna()))
-        st.info(f"📦 {get_random_padel_message('verarbeite')} - {len(all_dates)} Tage")
+        st.info(f"📦 {len(all_dates)} Tage werden verarbeitet...")
         
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -1419,8 +1226,7 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
         mapping = load_name_mapping()
         
         for i, td in enumerate(all_dates):
-            progress = (i + 1) / len(all_dates)
-            progress_bar.progress(progress)
+            progress_bar.progress((i + 1) / len(all_dates))
             status_text.text(f"{td.strftime('%d.%m.%Y')} ({i+1}/{len(all_dates)})")
             
             pd_day = playtomic_filtered[playtomic_filtered['Servicedatum'] == td]
@@ -1444,21 +1250,15 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
                 fehler = row['Relevant'] and not has_ci and not is_ma
                 
                 all_results.append({
-                    'Datum': str(td),
-                    'Name': row['Name'],
-                    'Name_norm': row['Name_norm'],
-                    'Betrag': row['Betrag'],
-                    'Service_Zeit': str(row['Service_Zeit']),
-                    'Checkin_Zeit': str(ci_zeit),
-                    'Product_SKU': row.get('Product_SKU', ''),
-                    'Sport': row.get('Sport', 'PADEL'),  # ✅ Sport speichern
+                    'Datum': str(td), 'Name': row['Name'], 'Name_norm': row['Name_norm'],
+                    'Betrag': row['Betrag'], 'Service_Zeit': str(row['Service_Zeit']), 'Checkin_Zeit': str(ci_zeit),
+                    'Product_SKU': row.get('Product_SKU', ''), 'Sport': row.get('Sport', ''),
                     'Relevant': 'Ja' if row['Relevant'] else 'Nein',
                     'Check-in': 'Ja' if has_ci else 'Nein',
                     'Mitarbeiter': 'Ja' if is_ma else 'Nein',
                     'Fehler': 'Ja' if fehler else 'Nein',
                     'analysis_date': td.strftime("%Y-%m-%d"),
-                    'Payment id': row.get('Payment id', ''),
-                    'Club payment id': row.get('Club payment id', '')
+                    'Payment id': row.get('Payment id', ''), 'Club payment id': row.get('Club payment id', '')
                 })
             
             seen_names = set()
@@ -1469,132 +1269,103 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
                     gespielt = not buchung.empty
                     all_checkin_results.append({
                         'Datum': str(td), 'Name': row['Name'], 'Name_norm': row['Name_norm'],
-                        'Checkin_Zeit': str(row['Checkin_Zeit']),
-                        'Gespielt': 'Ja' if gespielt else 'Nein',
+                        'Checkin_Zeit': str(row['Checkin_Zeit']), 'Gespielt': 'Ja' if gespielt else 'Nein',
                         'analysis_date': td.strftime("%Y-%m-%d")
                     })
         
         progress_bar.progress(1.0)
         status_text.success(f"✅ {len(all_dates)} Tage verarbeitet!")
         
-        st.info(get_random_padel_message('speichere'))
-        
-        # Buchungen speichern
+        # Speichern
         if all_results:
             buchungen = loadsheet("buchungen", ['analysis_date'])
-            
             if not buchungen.empty:
                 buchungen['_dup_key'] = buchungen['analysis_date'].astype(str) + '|' + buchungen['Name_norm'].astype(str) + '|' + buchungen['Service_Zeit'].astype(str)
                 existing_keys = set(buchungen['_dup_key'])
-                
                 new_results_df = pd.DataFrame(all_results)
                 new_results_df['_dup_key'] = new_results_df['analysis_date'].astype(str) + '|' + new_results_df['Name_norm'].astype(str) + '|' + new_results_df['Service_Zeit'].astype(str)
-                
                 new_results_filtered = new_results_df[~new_results_df['_dup_key'].isin(existing_keys)].drop('_dup_key', axis=1)
-                
                 if not new_results_filtered.empty:
                     buchungen = buchungen.drop('_dup_key', axis=1)
-                    new_buchungen = pd.concat([buchungen, new_results_filtered], ignore_index=True)
-                    savesheet(new_buchungen, "buchungen")
+                    savesheet(pd.concat([buchungen, new_results_filtered], ignore_index=True), "buchungen")
                     st.success(f"✅ {len(new_results_filtered)} neue Buchungen!")
-                else:
-                    st.info("ℹ️ Keine neuen Buchungen")
             else:
                 savesheet(pd.DataFrame(all_results), "buchungen")
                 st.success(f"✅ {len(all_results)} Buchungen!")
         
-        # Check-ins speichern
         if all_checkin_results:
             checkins = loadsheet("checkins", ['analysis_date'])
-            
             if not checkins.empty:
                 checkins['_dup_key'] = checkins['analysis_date'].astype(str) + '|' + checkins['Name_norm'].astype(str) + '|' + checkins['Checkin_Zeit'].astype(str)
                 existing_keys = set(checkins['_dup_key'])
-                
                 new_checkins_df = pd.DataFrame(all_checkin_results)
                 new_checkins_df['_dup_key'] = new_checkins_df['analysis_date'].astype(str) + '|' + new_checkins_df['Name_norm'].astype(str) + '|' + new_checkins_df['Checkin_Zeit'].astype(str)
-                
                 new_checkins_filtered = new_checkins_df[~new_checkins_df['_dup_key'].isin(existing_keys)].drop('_dup_key', axis=1)
-                
                 if not new_checkins_filtered.empty:
                     checkins = checkins.drop('_dup_key', axis=1)
-                    new_checkins = pd.concat([checkins, new_checkins_filtered], ignore_index=True)
-                    savesheet(new_checkins, "checkins")
+                    savesheet(pd.concat([checkins, new_checkins_filtered], ignore_index=True), "checkins")
                     st.success(f"✅ {len(new_checkins_filtered)} neue Check-ins!")
-                else:
-                    st.info("ℹ️ Keine neuen Check-ins")
             else:
                 savesheet(pd.DataFrame(all_checkin_results), "checkins")
                 st.success(f"✅ {len(all_checkin_results)} Check-ins!")
         
-        st.success("🎉 Fertig! Andy würde sagen: Por cuatro! 🚀")
+        st.success("🎉 Por cuatro! 🚀")
         st.balloons()
         time.sleep(2)
         st.rerun()
 
-
 # Customer Upload
 st.sidebar.markdown("---")
-st.sidebar.title("👥 Customers")
+cust_file = st.sidebar.file_uploader("👥 Customers", type=['csv'], key="customers")
 
-cust_file = st.sidebar.file_uploader("📁 Customer CSV", type=['csv'], key="customers")
-
-if st.sidebar.button("📤 Hochladen", use_container_width=True, type="primary") and cust_file:
-    with st.spinner("🔄 Lade..."):
-        try:
-            customers_df = parse_csv(cust_file)
-            if customers_df.empty:
-                st.sidebar.error("❌ CSV leer")
-            elif 'name' not in customers_df.columns:
-                st.sidebar.error(f"❌ 'name' fehlt!")
-            else:
-                customers_df['name_norm'] = customers_df['name'].apply(normalize_name)
-                if savesheet(customers_df, "customers"):
-                    st.sidebar.success(f"✅ {len(customers_df)} Kunden!")
-                    loadsheet.clear()
-                    time.sleep(1)
-                    st.rerun()
-        except Exception as e:
-            st.sidebar.error(f"❌ {str(e)[:50]}")
+if st.sidebar.button("📤 Upload", use_container_width=True) and cust_file:
+    try:
+        customers_df = parse_csv(cust_file)
+        if not customers_df.empty and 'name' in customers_df.columns:
+            customers_df['name_norm'] = customers_df['name'].apply(normalize_name)
+            if savesheet(customers_df, "customers"):
+                st.sidebar.success(f"✅ {len(customers_df)} Kunden!")
+                loadsheet.clear()
+                st.rerun()
+    except Exception as e:
+        st.sidebar.error(f"❌ {str(e)[:50]}")
 
 
 # ========================================
 # TABS
 # ========================================
 
-tab1, tab2 = st.tabs(["📅 Tagesansicht", "📊 Monatsübersicht"])
+tab1, tab2 = st.tabs(["📅 Tag", "📊 Monat"])
 
 with tab1:
     dates = get_dates()
     
     if not dates:
-        st.info("📄 Lade CSVs hoch um loszulegen! 🎾")
+        st.info("📄 Lade CSVs hoch! 🎾")
         st.stop()
     
     # Navigation
     col_prev, col_date, col_next = st.columns([1, 3, 1])
     
     with col_prev:
-        if st.button("◀ Zurück", use_container_width=True, key="prev_btn"):
-            new_idx = min(st.session_state.day_idx + 1, len(dates) - 1)
-            st.session_state.day_idx = new_idx
-            st.session_state.current_date = dates[new_idx].strftime("%Y-%m-%d")
+        if st.button("◀", use_container_width=True, key="prev_btn"):
+            st.session_state.day_idx = min(st.session_state.day_idx + 1, len(dates) - 1)
+            st.session_state.current_date = dates[st.session_state.day_idx].strftime("%Y-%m-%d")
             st.rerun()
     
     with col_date:
         curr_date = dates[st.session_state.day_idx]
-        st.info(f"📅 {curr_date.strftime('%d.%m.%Y')} (Tag {st.session_state.day_idx + 1}/{len(dates)})")
+        st.info(f"📅 {curr_date.strftime('%d.%m.%Y')}")
     
     with col_next:
-        if st.button("Weiter ▶", use_container_width=True, key="next_btn"):
-            new_idx = max(st.session_state.day_idx - 1, 0)
-            st.session_state.day_idx = new_idx
-            st.session_state.current_date = dates[new_idx].strftime("%Y-%m-%d")
+        if st.button("▶", use_container_width=True, key="next_btn"):
+            st.session_state.day_idx = max(st.session_state.day_idx - 1, 0)
+            st.session_state.current_date = dates[st.session_state.day_idx].strftime("%Y-%m-%d")
             st.rerun()
     
-    with st.expander("📆 Direkt zu Datum springen", expanded=False):
-        selected_date = st.selectbox("Wähle:", options=dates, index=st.session_state.day_idx, format_func=lambda x: x.strftime("%d.%m.%Y"), key="date_jump")
-        if st.button("✅ Go!", use_container_width=True):
+    with st.expander("📆 Springe zu...", expanded=False):
+        selected_date = st.selectbox("Datum:", options=dates, index=st.session_state.day_idx, format_func=lambda x: x.strftime("%d.%m.%Y"), key="date_jump")
+        if st.button("✅ Go", use_container_width=True):
             st.session_state.day_idx = dates.index(selected_date)
             st.session_state.current_date = selected_date.strftime("%Y-%m-%d")
             st.rerun()
@@ -1602,134 +1373,123 @@ with tab1:
     curr_date = dates[st.session_state.day_idx]
     st.session_state.current_date = curr_date.strftime("%Y-%m-%d")
     
-    # Datum formatieren
-    date_str = curr_date.strftime("%A, %d. %B %Y")
-    for en, de in {"Monday": "Montag", "Tuesday": "Dienstag", "Wednesday": "Mittwoch", "Thursday": "Donnerstag", "Friday": "Freitag", "Saturday": "Samstag", "Sunday": "Sonntag", "January": "Januar", "February": "Februar", "March": "März", "April": "April", "May": "Mai", "June": "Juni", "July": "Juli", "August": "August", "September": "September", "October": "Oktober", "November": "November", "December": "Dezember"}.items():
-        date_str = date_str.replace(en, de)
-    
-    st.markdown(f"<h2 style='text-align: center; color: #2c3e50;'>📅 {date_str}</h2>", unsafe_allow_html=True)
-    st.markdown("---")
-    
     df = load_snapshot(st.session_state.current_date)
     ci_df = load_checkins_snapshot(st.session_state.current_date)
     
     if df is None or df.empty:
-        st.info("🎾 Keine Daten für diesen Tag - Zeit für ein Padel-Match?")
+        st.info("🎾 Keine Daten für diesen Tag")
         st.stop()
 
     revenue = get_revenue_from_raw(date_str=st.session_state.current_date)
     wellpass_unique_checkins = get_unique_wellpass_checkins(st.session_state.current_date)
-    
-    current_day = datetime.strptime(st.session_state.current_date, "%Y-%m-%d").date()
-    wellpass_wert_tag = get_wellpass_wert(current_day)
+    wellpass_wert_tag = get_wellpass_wert(datetime.strptime(st.session_state.current_date, "%Y-%m-%d").date())
     wellpass_revenue = wellpass_unique_checkins * wellpass_wert_tag
     gesamt_mit_wellpass = revenue['gesamt'] + wellpass_revenue
     
-    # ✅ NEUE VEREINFACHTE UMSATZ-ANSICHT MIT TENNIS/PADEL SPLIT
-    st.subheader("💰 Umsatz")
-    
+    # ✅ KOMPAKTE UMSATZ-ZEILE
+    st.markdown("---")
     col1, col2, col3, col4, col5 = st.columns(5)
-    
     with col1:
         st.metric("💰 Gesamt", f"€{gesamt_mit_wellpass:.2f}")
-    
     with col2:
-        padel_pct = (revenue['padel'] / revenue['gesamt'] * 100) if revenue['gesamt'] > 0 else 0
-        st.metric("🎾 Padel", f"€{revenue['padel']:.2f}", f"{padel_pct:.0f}%")
-    
+        st.metric("🎾 Padel", f"€{revenue['padel']:.2f}")
     with col3:
-        tennis_pct = (revenue['tennis'] / revenue['gesamt'] * 100) if revenue['gesamt'] > 0 else 0
-        st.metric("🎾 Tennis", f"€{revenue['tennis']:.2f}", f"{tennis_pct:.0f}%")
-    
+        st.metric("🎾 Tennis", f"€{revenue['tennis']:.2f}")
     with col4:
-        extras = revenue['baelle'] + revenue['schlaeger']
-        extras_pct = (extras / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
-        st.metric("🏓 Extras", f"€{extras:.2f}", f"{extras_pct:.0f}%")
-    
+        st.metric("🏓 Extras", f"€{revenue['baelle'] + revenue['schlaeger']:.2f}")
     with col5:
-        wellpass_pct = (wellpass_revenue / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
-        st.metric("💳 Wellpass", f"€{wellpass_revenue:.2f}", f"{wellpass_unique_checkins} P.")
-    
-    # Chart: Tennis vs Padel
-    if gesamt_mit_wellpass > 0:
-        col_chart1, col_chart2 = st.columns(2)
-        
-        with col_chart1:
-            fig = go.Figure(data=[go.Pie(
-                labels=['🎾 Padel', '🎾 Tennis', '🏓 Extras', '💳 Wellpass'],
-                values=[revenue['padel'], revenue['tennis'], extras, wellpass_revenue],
-                hole=.4,
-                marker_colors=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
-            )])
-            fig.update_layout(title="Sport-Verteilung", height=300, showlegend=True)
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col_chart2:
-            # Padel vs Tennis Balken
-            if revenue['padel'] > 0 or revenue['tennis'] > 0:
-                fig2 = go.Figure(data=[
-                    go.Bar(name='Padel', x=['Buchungen'], y=[revenue['padel']], marker_color='#FF6B6B'),
-                    go.Bar(name='Tennis', x=['Buchungen'], y=[revenue['tennis']], marker_color='#4ECDC4')
-                ])
-                fig2.update_layout(title="Padel vs Tennis", height=300, barmode='group')
-                st.plotly_chart(fig2, use_container_width=True)
+        st.metric("💳 Wellpass", f"€{wellpass_revenue:.2f}", f"{wellpass_unique_checkins} CI")
     
     st.markdown("---")
     
-    # Statistik-Kacheln
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("🎾 Buchungen", len(df))
-    with col2:
-        st.metric("🎯 Relevant", len(df[df['Relevant'] == 'Ja']))
-    with col3:
-        st.metric("❌ Fehler", len(df[df['Fehler'] == 'Ja']))
-    with col4:
-        st.metric("👥 Team", len(df[df['Mitarbeiter'] == 'Ja']))
-    with col5:
-        st.metric("✅ Check-ins", len(ci_df) if ci_df is not None else 0)
+    # ✅ STATISTIK-BADGES
+    relevant_count = len(df[df['Relevant'] == 'Ja'])
+    fehler_count = len(df[df['Fehler'] == 'Ja'])
+    checkin_count = len(ci_df) if ci_df is not None else 0
+    
+    st.markdown(f"**📊 Übersicht:** {len(df)} Buchungen · {relevant_count} Relevant · {'🔴' if fehler_count > 0 else '🟢'} {fehler_count} Fehler · {checkin_count} Check-ins")
     
     st.markdown("---")
     
-    # Tabellen
-    ct1, ct2 = st.columns(2)
+    # ✅ ZWEI LISTEN MIT STATUS-BADGE VOR DEM NAMEN
+    col_left, col_right = st.columns(2)
     
-    with ct1:
+    with col_left:
+        st.markdown("##### 📋 Buchungen (Relevant)")
         rv = df[df['Relevant'] == 'Ja'].sort_values('Name').copy()
-        display_cols = ['Name', 'Betrag']
-        if 'Service_Zeit' in rv.columns:
-            display_cols.append('Service_Zeit')
-        if 'Sport' in rv.columns:
-            display_cols.append('Sport')
-        display_cols.extend(['Check-in', 'Fehler'])
-        styled = rv[display_cols].style.map(color_fehler, subset=['Fehler'])
-        st.dataframe(styled, use_container_width=True, hide_index=True, height=min(len(rv) * 35 + 38, 600))
-        st.caption(f"📊 {len(rv)} relevante Buchungen")
+        
+        if not rv.empty:
+            # Status-Badge vor Namen
+            def add_status_badge(row):
+                if row['Fehler'] == 'Ja':
+                    return f"🔴 {row['Name']}"
+                elif row['Check-in'] == 'Ja':
+                    return f"🟢 {row['Name']}"
+                else:
+                    return f"⚪ {row['Name']}"
+            
+            rv['Spieler'] = rv.apply(add_status_badge, axis=1)
+            
+            # Sport-Icon
+            if 'Sport' in rv.columns:
+                rv['🏆'] = rv['Sport'].apply(lambda x: '🎾P' if str(x).upper() == 'PADEL' else ('🎾T' if str(x).upper() == 'TENNIS' else ''))
+            
+            display_cols = ['Spieler', 'Betrag']
+            if 'Service_Zeit' in rv.columns:
+                display_cols.append('Service_Zeit')
+            if '🏆' in rv.columns:
+                display_cols.append('🏆')
+            
+            # Dynamische Höhe - alle Zeilen sichtbar
+            row_height = 35
+            header_height = 40
+            table_height = min(len(rv) * row_height + header_height, 1200)
+            
+            st.dataframe(rv[display_cols], use_container_width=True, hide_index=True, height=table_height)
+            st.caption(f"🟢 Check-in OK · 🔴 Fehlt · ⚪ Nicht relevant")
+        else:
+            st.info("Keine relevanten Buchungen")
     
-    with ct2:
+    with col_right:
+        st.markdown("##### ✅ Wellpass Check-ins")
+        
         if ci_df is not None and not ci_df.empty:
             ci_view = ci_df.sort_values('Name').copy()
-            display_cols_ci = ["Name", "Checkin_Zeit"]
-            if 'Gespielt' in ci_view.columns:
-                display_cols_ci.append('Gespielt')
-            st.dataframe(ci_view[display_cols_ci], use_container_width=True, hide_index=True, height=min(len(ci_view) * 35 + 38, 600))
-            st.caption(f"📊 {len(ci_view)} Check-ins")
+            
+            # Status-Badge vor Namen  
+            def add_gespielt_badge(row):
+                if row.get('Gespielt', 'Nein') == 'Ja':
+                    return f"🟢 {row['Name']}"
+                else:
+                    return f"🔴 {row['Name']}"
+            
+            ci_view['Spieler'] = ci_view.apply(add_gespielt_badge, axis=1)
+            
+            display_cols_ci = ['Spieler', 'Checkin_Zeit']
+            
+            # Dynamische Höhe
+            row_height = 35
+            header_height = 40
+            table_height = min(len(ci_view) * row_height + header_height, 1200)
+            
+            # ✅ Färbung für Gespielt-Status
+            styled_ci = ci_view[display_cols_ci]
+            st.dataframe(styled_ci, use_container_width=True, hide_index=True, height=table_height)
+            st.caption(f"🟢 Buchung vorhanden · 🔴 Keine Buchung gefunden")
         else:
             st.info("Keine Check-ins")
     
     st.markdown("---")
     
-    # Fehler-Bereich
+    # ✅ FEHLER-BEREICH
     fehler = df[df['Fehler'] == 'Ja'].copy()
     if not fehler.empty:
         st.subheader(f"🛑 Offene Fehler ({len(fehler)})")
-        st.caption(get_random_padel_message('fehler'))
         
         mapping = load_name_mapping()
         rejected_matches = load_rejected_matches()
         corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
         
-        fehler_data = []
         for idx, row in fehler.iterrows():
             key = f"{row['Name_norm']}_{row['Datum']}_{row['Betrag']}"
             is_behoben = False
@@ -1738,80 +1498,66 @@ with tab1:
                 if not match.empty:
                     is_behoben = bool(match.iloc[0].get('behoben', False))
             
-            whatsapp_sent_time = get_whatsapp_sent_time(row)
-            customer_data = get_customer_data(row['Name'])
-            telefon = customer_data['phone_number'][:15] + '...' if customer_data and len(customer_data['phone_number']) > 15 else (customer_data['phone_number'] if customer_data else 'N/A')
+            if is_behoben:
+                continue
             
-            fehler_data.append({
-                'Status': '✅' if is_behoben else '🔴',
-                'Name': row['Name'],
-                'Betrag': f"€{row['Betrag']}",
-                'Zeit': row.get('Service_Zeit', 'N/A'),
-                'WhatsApp': '✅' if whatsapp_sent_time else '❌',
-                '_key': key, '_row': row, '_is_behoben': is_behoben
-            })
-        
-        fehler_df = pd.DataFrame(fehler_data)
-        st.dataframe(fehler_df[['Status', 'Name', 'Betrag', 'Zeit', 'WhatsApp']], use_container_width=True, hide_index=True, height=min(len(fehler_df) * 35 + 38, 400))
-        
-        st.markdown("---")
-        st.markdown("### 🔧 Fehler bearbeiten")
-        
-        fehler_options = [f"{f['Status']} {f['Name']} | {f['Betrag']}" for f in fehler_data]
-        selected_fehler_name = st.selectbox("Auswählen:", options=fehler_options, key="fehler_selector")
-        
-        selected_idx = fehler_options.index(selected_fehler_name)
-        selected_fehler = fehler_data[selected_idx]
-        row = selected_fehler['_row']
-        key = selected_fehler['_key']
-        is_behoben = selected_fehler['_is_behoben']
-        
-        col1, col2, col3 = st.columns([2, 2, 1])
-        
-        with col1:
-            st.markdown(f"**🧑** {row['Name']}")
-            st.caption(f"⏰ {row.get('Service_Zeit', 'N/A')} | 💰 €{row['Betrag']}")
-        
-        with col2:
-            customer_data = get_customer_data(row['Name'])
-            if customer_data:
-                st.caption(f"📱 {customer_data['phone_number']}")
-                st.caption(f"📧 {customer_data['email'][:25]}...")
-            else:
-                st.caption("⚠️ Nicht im Sheet")
-        
-        with col3:
-            if not is_behoben:
-                if st.button("✅ Behoben", key=f"fix_{key}", type="primary", use_container_width=True):
-                    if not corr.empty and 'key' in corr.columns:
-                        corr = corr[corr['key'] != key]
-                    new_row_df = pd.DataFrame([{'key': key, 'date': st.session_state.current_date, 'behoben': True, 'timestamp': datetime.now().isoformat()}])
-                    corr = pd.concat([corr, new_row_df], ignore_index=True)
-                    savesheet(corr, "corrections")
-                    st.success("✅")
-                    time.sleep(0.5)
-                    st.rerun()
-            else:
-                if st.button("🔄 Öffnen", key=f"reopen_{key}", use_container_width=True):
-                    if not corr.empty and 'key' in corr.columns:
-                        corr = corr[corr['key'] != key]
+            whatsapp_sent = get_whatsapp_sent_time(row)
+            sport_icon = '🎾P' if str(row.get('Sport', '')).upper() == 'PADEL' else '🎾T'
+            
+            with st.expander(f"🔴 {row['Name']} | €{row['Betrag']} | {row.get('Service_Zeit', '')} {sport_icon}", expanded=False):
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    customer = get_customer_data(row['Name'])
+                    if customer:
+                        st.caption(f"📱 {customer['phone_number']} · 📧 {customer['email'][:30]}")
+                    else:
+                        st.caption("⚠️ Nicht im Customer-Sheet")
+                    
+                    if whatsapp_sent:
+                        st.caption(f"✅ WhatsApp: {whatsapp_sent.strftime('%d.%m. %H:%M')}")
+                
+                with col2:
+                    if st.button("✅ Behoben", key=f"fix_{key}", use_container_width=True):
+                        if not corr.empty and 'key' in corr.columns:
+                            corr = corr[corr['key'] != key]
+                        corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': st.session_state.current_date, 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
                         savesheet(corr, "corrections")
-                    st.rerun()
-        
-        if not is_behoben:
-            st.markdown("---")
-            render_name_matching_interface(row, ci_df, mapping, rejected_matches, fehler)
-            
-            st.markdown("---")
-            col_wa1, col_wa2 = st.columns(2)
-            with col_wa1:
-                if st.button("📱 WhatsApp senden", key=f"wa_{key}", type="primary", use_container_width=True):
-                    send_wellpass_whatsapp_to_player(row)
-            with col_wa2:
-                if st.button("🧪 Test WhatsApp", key=f"wa_test_{key}", use_container_width=True):
-                    send_wellpass_whatsapp_test(row)
+                        st.rerun()
+                
+                render_name_matching_interface(row, ci_df, mapping, rejected_matches, fehler)
+                
+                st.markdown("---")
+                col_wa1, col_wa2 = st.columns(2)
+                with col_wa1:
+                    if st.button("📱 WhatsApp", key=f"wa_{key}", use_container_width=True):
+                        send_wellpass_whatsapp_to_player(row)
+                with col_wa2:
+                    if st.button("🧪 Test", key=f"test_{key}", use_container_width=True):
+                        send_wellpass_whatsapp_test(row)
     else:
         st.success("✅ Keine offenen Fehler! Por cuatro! 🎉")
+    
+    # ✅ CHARTS NACH UNTEN
+    if gesamt_mit_wellpass > 0:
+        with st.expander("📊 Charts", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                fig = go.Figure(data=[go.Pie(
+                    labels=['Padel', 'Tennis', 'Extras', 'Wellpass'],
+                    values=[revenue['padel'], revenue['tennis'], revenue['baelle'] + revenue['schlaeger'], wellpass_revenue],
+                    hole=.4, marker_colors=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
+                )])
+                fig.update_layout(title="Umsatz", height=300)
+                st.plotly_chart(fig, use_container_width=True)
+            with col2:
+                if revenue['padel'] > 0 or revenue['tennis'] > 0:
+                    fig2 = go.Figure(data=[
+                        go.Bar(name='Padel', x=['Sport'], y=[revenue['padel']], marker_color='#FF6B6B'),
+                        go.Bar(name='Tennis', x=['Sport'], y=[revenue['tennis']], marker_color='#4ECDC4')
+                    ])
+                    fig2.update_layout(title="Padel vs Tennis", height=300, barmode='group')
+                    st.plotly_chart(fig2, use_container_width=True)
     
     render_learned_matches_manager()
 
@@ -1821,18 +1567,16 @@ with tab1:
 # ========================================
 
 with tab2:
-    st.subheader("📊 Monatsübersicht")
+    st.subheader("📊 Monat")
     
     today = date.today()
-    years = list(range(2024, today.year + 1))
-    months = list(range(1, 13))
     month_names = {1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April', 5: 'Mai', 6: 'Juni', 7: 'Juli', 8: 'August', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'}
     
     col1, col2 = st.columns(2)
     with col1:
-        selected_year = st.selectbox("Jahr:", years, index=len(years)-1)
+        selected_year = st.selectbox("Jahr:", list(range(2024, today.year + 1)), index=today.year - 2024)
     with col2:
-        selected_month = st.selectbox("Monat:", months, format_func=lambda x: month_names[x], index=today.month-1)
+        selected_month = st.selectbox("Monat:", list(range(1, 13)), format_func=lambda x: month_names[x], index=today.month - 1)
     
     first_day = date(selected_year, selected_month, 1)
     last_day = date(selected_year, selected_month, monthrange(selected_year, selected_month)[1])
@@ -1840,7 +1584,7 @@ with tab2:
     buchungen = loadsheet("buchungen")
     
     if buchungen.empty or 'analysis_date' not in buchungen.columns:
-        st.info("📦 Keine Daten - CSVs hochladen!")
+        st.info("📦 Keine Daten")
         st.stop()
     
     buchungen['date_obj'] = pd.to_datetime(buchungen['analysis_date'], errors='coerce').dt.date
@@ -1867,11 +1611,8 @@ with tab2:
     gesamt_umsatz = revenue_month['gesamt'] + wellpass_revenue_monat
     
     st.markdown("---")
-    st.markdown(f"### 📅 {month_names[selected_month]} {selected_year}")
     
-    # Metriken mit Tennis/Padel Split
     col1, col2, col3, col4, col5, col6 = st.columns(6)
-    
     with col1:
         st.metric("💰 Gesamt", f"€{gesamt_umsatz:.2f}")
     with col2:
@@ -1879,42 +1620,33 @@ with tab2:
     with col3:
         st.metric("🎾 Tennis", f"€{revenue_month['tennis']:.2f}")
     with col4:
-        st.metric("💳 Wellpass", f"€{wellpass_revenue_monat:.2f}", f"{wellpass_checkins_monat} CI")
+        st.metric("💳 Wellpass", f"€{wellpass_revenue_monat:.2f}")
     with col5:
         st.metric("📊 Buchungen", f"{total_buchungen}")
     with col6:
-        fehler_rate = (fehler_gesamt/relevant_buchungen*100) if relevant_buchungen > 0 else 0
+        fehler_rate = (fehler_gesamt / relevant_buchungen * 100) if relevant_buchungen > 0 else 0
         st.metric("❌ Fehler", f"{fehler_gesamt}", f"{fehler_rate:.1f}%")
     
     st.markdown("---")
     
-    # Charts
-    col_chart1, col_chart2 = st.columns(2)
-    
-    with col_chart1:
-        extras = revenue_month['baelle'] + revenue_month['schlaeger']
+    col1, col2 = st.columns(2)
+    with col1:
         fig = go.Figure(data=[go.Pie(
-            labels=['🎾 Padel', '🎾 Tennis', '🏓 Extras', '💳 Wellpass'],
-            values=[revenue_month['padel'], revenue_month['tennis'], extras, wellpass_revenue_monat],
-            hole=.4,
-            marker_colors=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
+            labels=['Padel', 'Tennis', 'Extras', 'Wellpass'],
+            values=[revenue_month['padel'], revenue_month['tennis'], revenue_month['baelle'] + revenue_month['schlaeger'], wellpass_revenue_monat],
+            hole=.4, marker_colors=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
         )])
-        fig.update_layout(title="Umsatz-Verteilung", height=350)
+        fig.update_layout(title="Umsatz-Verteilung", height=300)
         st.plotly_chart(fig, use_container_width=True)
     
-    with col_chart2:
+    with col2:
         korrekt = relevant_buchungen - fehler_gesamt
         fig = go.Figure(data=[go.Pie(
-            labels=['✅ Korrekt', '❌ Fehler'],
-            values=[korrekt, fehler_gesamt],
-            hole=.4,
-            marker_colors=['#96CEB4', '#FF6B6B']
+            labels=['✅ OK', '❌ Fehler'], values=[korrekt, fehler_gesamt],
+            hole=.4, marker_colors=['#96CEB4', '#FF6B6B']
         )])
-        fig.update_layout(title="Fehlerquote", height=350)
+        fig.update_layout(title="Fehlerquote", height=300)
         st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("---")
-    st.markdown(f"**🎾 {month_names[selected_month]} Fazit:** {total_buchungen} Buchungen, {wellpass_checkins_monat} Wellpass Check-ins, {100-fehler_rate:.1f}% Erfolgsquote")
 
 
 # ========================================
@@ -1922,13 +1654,4 @@ with tab2:
 # ========================================
 
 st.markdown("---")
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    st.markdown(
-        '<div style="text-align: center; color: #666; font-size: 12px;">'
-        '🎾🏔️ <b>Halle 11 Dashboard v7.1</b><br>'
-        '⚡ <b>Famiglia Schneiderhan powered</b> ⚡<br>'
-        'Made with ❤️ | 🎾 Padel + Tennis | 🍪 Cookie-Login'
-        '</div>',
-        unsafe_allow_html=True
-    )
+st.markdown("<p style='text-align: center; color: #888; font-size: 12px;'>🎾 halle11 v7.2 · ⚡ Famiglia Schneiderhan powered</p>", unsafe_allow_html=True)
