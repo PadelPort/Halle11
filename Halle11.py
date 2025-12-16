@@ -1603,41 +1603,6 @@ with tab1:
                     with col_wa2:
                         if st.button("🧪 Test", key=f"test_{key}", use_container_width=True):
                             send_wellpass_whatsapp_test(row)
-            
-            whatsapp_sent = get_whatsapp_sent_time(row)
-            sport_icon = '🎾P' if str(row.get('Sport', '')).upper() == 'PADEL' else '🎾T'
-            
-            with st.expander(f"🔴 {row['Name']} | €{row['Betrag']} | {row.get('Service_Zeit', '')} {sport_icon}", expanded=False):
-                col1, col2 = st.columns([2, 1])
-                
-                with col1:
-                    customer = get_customer_data(row['Name'])
-                    if customer:
-                        st.caption(f"📱 {customer['phone_number']} · 📧 {customer['email'][:30]}")
-                    else:
-                        st.caption("⚠️ Nicht im Customer-Sheet")
-                    
-                    if whatsapp_sent:
-                        st.caption(f"✅ WhatsApp: {whatsapp_sent.strftime('%d.%m. %H:%M')}")
-                
-                with col2:
-                    if st.button("✅ Behoben", key=f"fix_{key}", use_container_width=True):
-                        if not corr.empty and 'key' in corr.columns:
-                            corr = corr[corr['key'] != key]
-                        corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': st.session_state.current_date, 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
-                        savesheet(corr, "corrections")
-                        st.rerun()
-                
-                render_name_matching_interface(row, ci_df, mapping, rejected_matches, fehler)
-                
-                st.markdown("---")
-                col_wa1, col_wa2 = st.columns(2)
-                with col_wa1:
-                    if st.button("📱 WhatsApp", key=f"wa_{key}", use_container_width=True):
-                        send_wellpass_whatsapp_to_player(row)
-                with col_wa2:
-                    if st.button("🧪 Test", key=f"test_{key}", use_container_width=True):
-                        send_wellpass_whatsapp_test(row)
     else:
         st.success("✅ Keine offenen Fehler! Por cuatro! 🎉")
     
