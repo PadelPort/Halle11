@@ -1328,34 +1328,80 @@ st.set_page_config(
 )
 
 # ========================================
-# 🎨 KOMPLETT NEUES CSS DESIGN
+# 🎨 KOMPLETT NEUES CSS DESIGN (THEME-AWARE)
 # ========================================
 
 st.markdown(f"""
 <style>
+    /* ===== CSS VARIABLEN FÜR THEME SUPPORT ===== */
+    :root {{
+        --halle11-primary: {COLORS['primary']};
+        --halle11-primary-light: {COLORS['primary_light']};
+        --halle11-secondary: {COLORS['secondary']};
+        --halle11-accent: {COLORS['accent']};
+        --halle11-success: {COLORS['success']};
+        --halle11-error: {COLORS['error']};
+        --halle11-warning: {COLORS['warning']};
+    }}
+    
+    /* ===== LIGHT MODE (Default) ===== */
+    :root {{
+        --card-bg: #FFFFFF;
+        --card-border: #E0E0E0;
+        --text-primary: #1A1A1A;
+        --text-secondary: #666666;
+        --bg-subtle: #F8FBF8;
+        --shadow-color: rgba(0,0,0,0.08);
+        --shadow-hover: rgba(0,0,0,0.12);
+    }}
+    
+    /* ===== DARK MODE ===== */
+    @media (prefers-color-scheme: dark) {{
+        :root {{
+            --card-bg: #262730;
+            --card-border: #3D3D4D;
+            --text-primary: #FAFAFA;
+            --text-secondary: #B0B0B0;
+            --bg-subtle: #0E1117;
+            --shadow-color: rgba(0,0,0,0.3);
+            --shadow-hover: rgba(0,0,0,0.4);
+        }}
+    }}
+    
+    /* Streamlit Dark Mode Detection */
+    [data-testid="stAppViewContainer"][data-theme="dark"] {{
+        --card-bg: #262730;
+        --card-border: #3D3D4D;
+        --text-primary: #FAFAFA;
+        --text-secondary: #B0B0B0;
+        --bg-subtle: #0E1117;
+        --shadow-color: rgba(0,0,0,0.3);
+        --shadow-hover: rgba(0,0,0,0.4);
+    }}
+    
     /* ===== GLOBALE STYLES ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
     .stApp {{
         font-family: 'Inter', sans-serif;
-        background: linear-gradient(180deg, {COLORS['background']} 0%, #FFFFFF 100%);
     }}
     
-    /* ===== HEADER BRANDING ===== */
+    /* ===== HEADER BRANDING (immer grün) ===== */
     .main-header {{
-        background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_light']} 100%);
+        background: linear-gradient(135deg, var(--halle11-primary) 0%, var(--halle11-primary-light) 100%);
         padding: 1.5rem 2rem;
         border-radius: 16px;
         margin-bottom: 1.5rem;
         box-shadow: 0 4px 20px rgba(27, 94, 32, 0.15);
         text-align: center;
-        color: white;
+        color: white !important;
     }}
     
     .main-header h1 {{
         font-size: 2.5rem;
         font-weight: 700;
         margin: 0;
+        color: white !important;
         text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
     }}
     
@@ -1363,22 +1409,23 @@ st.markdown(f"""
         font-size: 1rem;
         opacity: 0.9;
         margin-top: 0.3rem;
+        color: white !important;
     }}
     
-    /* ===== METRIC CARDS ===== */
+    /* ===== METRIC CARDS (Theme-aware) ===== */
     .metric-card {{
-        background: {COLORS['card_bg']};
+        background: var(--card-bg);
         border-radius: 16px;
         padding: 1.2rem;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-        border: 1px solid {COLORS['border']};
+        box-shadow: 0 2px 12px var(--shadow-color);
+        border: 1px solid var(--card-border);
         transition: all 0.3s ease;
         text-align: center;
     }}
     
     .metric-card:hover {{
         transform: translateY(-4px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        box-shadow: 0 8px 25px var(--shadow-hover);
     }}
     
     .metric-card .icon {{
@@ -1389,13 +1436,13 @@ st.markdown(f"""
     .metric-card .value {{
         font-size: 1.8rem;
         font-weight: 700;
-        color: {COLORS['text']};
+        color: var(--text-primary);
         line-height: 1.2;
     }}
     
     .metric-card .label {{
         font-size: 0.85rem;
-        color: {COLORS['text_light']};
+        color: var(--text-secondary);
         margin-top: 0.3rem;
     }}
     
@@ -1408,23 +1455,23 @@ st.markdown(f"""
     }}
     
     .metric-card .delta.positive {{
-        background: #E8F5E9;
-        color: {COLORS['success']};
+        background: rgba(67, 160, 71, 0.15);
+        color: var(--halle11-success);
     }}
     
     .metric-card .delta.negative {{
-        background: #FFEBEE;
-        color: {COLORS['error']};
+        background: rgba(229, 57, 53, 0.15);
+        color: var(--halle11-error);
     }}
     
-    /* Spezielle Karten-Farben */
-    .metric-card.total {{ border-top: 4px solid {COLORS['secondary']}; }}
-    .metric-card.padel {{ border-top: 4px solid {COLORS['accent']}; }}
-    .metric-card.tennis {{ border-top: 4px solid {COLORS['primary_light']}; }}
-    .metric-card.wellpass {{ border-top: 4px solid {COLORS['primary']}; }}
+    /* Spezielle Karten-Farben (Border-Top bleibt immer sichtbar) */
+    .metric-card.total {{ border-top: 4px solid var(--halle11-secondary); }}
+    .metric-card.padel {{ border-top: 4px solid var(--halle11-accent); }}
+    .metric-card.tennis {{ border-top: 4px solid var(--halle11-primary-light); }}
+    .metric-card.wellpass {{ border-top: 4px solid var(--halle11-primary); }}
     .metric-card.extras {{ border-top: 4px solid #9C27B0; }}
     
-    /* ===== STATUS BADGES ===== */
+    /* ===== STATUS BADGES (Theme-aware) ===== */
     .status-badge {{
         display: inline-flex;
         align-items: center;
@@ -1432,39 +1479,39 @@ st.markdown(f"""
         border-radius: 20px;
         font-size: 0.85rem;
         font-weight: 500;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        color: var(--text-primary);
     }}
     
     .status-badge.success {{
-        background: #E8F5E9;
-        color: {COLORS['success']};
+        background: rgba(67, 160, 71, 0.15);
+        color: var(--halle11-success);
+        border-color: var(--halle11-success);
     }}
     
     .status-badge.error {{
-        background: #FFEBEE;
-        color: {COLORS['error']};
+        background: rgba(229, 57, 53, 0.15);
+        color: var(--halle11-error);
+        border-color: var(--halle11-error);
     }}
     
     .status-badge.warning {{
-        background: #FFF3E0;
-        color: {COLORS['warning']};
+        background: rgba(251, 140, 0, 0.15);
+        color: var(--halle11-warning);
+        border-color: var(--halle11-warning);
     }}
     
-    /* ===== NAVIGATION ===== */
-    .nav-container {{
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
-        margin: 1rem 0;
-    }}
-    
+    /* ===== NAVIGATION (Theme-aware) ===== */
     .date-display {{
-        background: {COLORS['card_bg']};
+        background: var(--card-bg);
         padding: 0.8rem 2rem;
         border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        box-shadow: 0 2px 8px var(--shadow-color);
         font-weight: 600;
         font-size: 1.1rem;
+        color: var(--text-primary);
+        border: 1px solid var(--card-border);
     }}
     
     /* ===== BUTTONS ===== */
@@ -1472,23 +1519,18 @@ st.markdown(f"""
         border-radius: 12px !important;
         font-weight: 500 !important;
         transition: all 0.3s ease !important;
-        border: none !important;
     }}
     
     .stButton > button:hover {{
         transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        box-shadow: 0 4px 12px var(--shadow-hover) !important;
     }}
     
-    .stButton > button[kind="primary"] {{
-        background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_light']} 100%) !important;
-    }}
-    
-    /* ===== EXPANDER ===== */
+    /* ===== EXPANDER (Theme-aware) ===== */
     .stExpander {{
-        background: {COLORS['card_bg']};
+        background: var(--card-bg);
         border-radius: 12px !important;
-        border: 1px solid {COLORS['border']} !important;
+        border: 1px solid var(--card-border) !important;
         margin-bottom: 0.8rem !important;
         overflow: hidden;
     }}
@@ -1497,44 +1539,22 @@ st.markdown(f"""
         padding: 0.8rem !important;
     }}
     
-    /* ===== DATAFRAME ===== */
-    .stDataFrame {{
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }}
-    
-    /* ===== SIDEBAR ===== */
+    /* ===== SIDEBAR (immer dunkelgrün) ===== */
     [data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, {COLORS['primary']} 0%, #0D3311 100%);
+        background: linear-gradient(180deg, var(--halle11-primary) 0%, #0D3311 100%) !important;
     }}
     
-    [data-testid="stSidebar"] .stMarkdown {{
-        color: white;
-    }}
-    
-    [data-testid="stSidebar"] h1, 
-    [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3 {{
+    [data-testid="stSidebar"] * {{
         color: white !important;
     }}
     
-    /* ✅ ALLE Sidebar-Texte weiß */
+    [data-testid="stSidebar"] .stMarkdown,
     [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] .stFileUploader label,
-    [data-testid="stSidebar"] .stFileUploader span,
-    [data-testid="stSidebar"] .stFileUploader p,
-    [data-testid="stSidebar"] .stSelectbox label,
-    [data-testid="stSidebar"] .stTextInput label,
-    [data-testid="stSidebar"] .stNumberInput label,
-    [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] div {{
-        color: white !important;
-    }}
-    
-    /* File Uploader Box Styling */
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] {{
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {{
         color: white !important;
     }}
     
@@ -1550,45 +1570,57 @@ st.markdown(f"""
     }}
     
     [data-testid="stSidebar"] .stButton button {{
-        background: {COLORS['secondary']} !important;
-        color: {COLORS['text']} !important;
+        background: var(--halle11-secondary) !important;
+        color: #1A1A1A !important;
         font-weight: 600 !important;
+        border: none !important;
     }}
     
-    /* ===== TABS ===== */
+    /* ===== TABS (Theme-aware) ===== */
     .stTabs [data-baseweb="tab-list"] {{
         gap: 8px;
-        background: {COLORS['card_bg']};
+        background: var(--card-bg);
         padding: 0.5rem;
         border-radius: 12px;
+        border: 1px solid var(--card-border);
     }}
     
     .stTabs [data-baseweb="tab"] {{
         border-radius: 8px;
         padding: 0.5rem 1.5rem;
         font-weight: 500;
+        color: var(--text-primary);
     }}
     
     .stTabs [aria-selected="true"] {{
-        background: {COLORS['primary']} !important;
+        background: var(--halle11-primary) !important;
         color: white !important;
     }}
     
-    /* ===== SUCCESS/ERROR BOXES ===== */
+    /* ===== SUCCESS/ERROR BOXES (Theme-aware) ===== */
     .success-box {{
-        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
-        border-left: 4px solid {COLORS['success']};
+        background: rgba(67, 160, 71, 0.15);
+        border-left: 4px solid var(--halle11-success);
         padding: 1rem 1.5rem;
         border-radius: 8px;
         margin: 1rem 0;
+        color: var(--text-primary);
     }}
     
     .error-box {{
-        background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
-        border-left: 4px solid {COLORS['error']};
+        background: rgba(229, 57, 53, 0.15);
+        border-left: 4px solid var(--halle11-error);
         padding: 1rem 1.5rem;
         border-radius: 8px;
         margin: 1rem 0;
+        color: var(--text-primary);
+    }}
+    
+    /* ===== DATAFRAME (Theme-aware) ===== */
+    .stDataFrame {{
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px var(--shadow-color);
     }}
     
     /* ===== MOBILE RESPONSIVE ===== */
@@ -1612,12 +1644,6 @@ st.markdown(f"""
         .date-display {{
             padding: 0.5rem 1rem;
             font-size: 0.9rem;
-        }}
-        
-        /* Stack columns on mobile */
-        [data-testid="column"] {{
-            width: 100% !important;
-            flex: 1 1 100% !important;
         }}
     }}
     
@@ -1643,24 +1669,24 @@ st.markdown(f"""
     /* ===== KONFETTI ===== */
     {CONFETTI_CSS}
     
-    /* ===== SCROLLBAR ===== */
+    /* ===== SCROLLBAR (Theme-aware) ===== */
     ::-webkit-scrollbar {{
         width: 8px;
         height: 8px;
     }}
     
     ::-webkit-scrollbar-track {{
-        background: #f1f1f1;
+        background: var(--bg-subtle);
         border-radius: 4px;
     }}
     
     ::-webkit-scrollbar-thumb {{
-        background: {COLORS['primary_light']};
+        background: var(--halle11-primary-light);
         border-radius: 4px;
     }}
     
     ::-webkit-scrollbar-thumb:hover {{
-        background: {COLORS['primary']};
+        background: var(--halle11-primary);
     }}
 </style>
 
@@ -1669,7 +1695,7 @@ st.markdown(f"""
     {WHATSAPP_SOUND_JS}
     
     function triggerConfetti() {{
-        const colors = ['{COLORS["primary"]}', '{COLORS["secondary"]}', '{COLORS["accent"]}', '{COLORS["success"]}', '#9C27B0'];
+        const colors = ['#1B5E20', '#FFB300', '#FF5722', '#43A047', '#9C27B0'];
         for (let i = 0; i < 50; i++) {{
             setTimeout(() => {{
                 const confetti = document.createElement('div');
@@ -1692,7 +1718,6 @@ st.markdown(f"""
     }}, 300000);
 </script>
 """, unsafe_allow_html=True)
-
 validate_secrets()
 
 if not check_password():
