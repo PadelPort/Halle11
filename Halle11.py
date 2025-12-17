@@ -1957,7 +1957,7 @@ if st.sidebar.button("📤 Upload", use_container_width=True) and cust_file:
 # TABS
 # ========================================
 
-tab1, tab2 = st.tabs(["📅 Tag", "📊 Monat"])
+tab1, tab2, tab3 = st.tabs(["📅 Tag", "📊 Monat", "👥 Spieler"])
 
 with tab1:
     dates = get_dates()
@@ -2518,6 +2518,293 @@ with tab2:
 
 
 # ========================================
+# TAB 3: SPIELER-ANALYTICS
+# ========================================
+
+with tab3:
+    st.markdown("### 👥 Spieler-Analytics")
+    
+    # Zeitraum-Auswahl
+    col_period, col_info = st.columns([2, 3])
+    with col_period:
+        analysis_days = st.selectbox(
+            "📅 Zeitraum",
+            options=[7, 14, 30, 60, 90],
+            index=2,
+            format_func=lambda x: f"Letzte {x} Tage",
+            key="analytics_period"
+        )
+    
+    # Lade alle Buchungsdaten
+    all_buchungen = loadsheet("buchungen")
+    
+    if all_buchungen.empty or 'analysis_date' not in all_buchungen.columns:
+        st.warning("⚠️ Keine Buchungsdaten vorhanden. Bitte erst CSVs hochladen!")
+    else:
+        # Filtere auf Zeitraum
+        today = date.today()
+        start_date = today - timedelta(days=analysis_days)
+        
+        all_buchungen['date_obj'] = pd.to_datetime(all_buchungen['analysis_date'], errors='coerce').dt.date
+        period_data = all_buchungen[all_buchungen['date_obj'] >= start_date].copy()
+        
+        if period_data.empty:
+            st.info(f"📭 Keine Daten in den letzten {analysis_days} Tagen")
+        else:
+            # Filtere Mitarbeiter raus
+            if 'Mitarbeiter' in period_data.columns:
+                period_data = period_data[period_data['Mitarbeiter'] != 'Ja']
+            
+            with col_info:
+                unique_players = period_data['Name'].nunique()
+                total_bookings = len(period_data)
+                st.markdown(f"""
+                    <div class="status-badge" style="margin-top: 1.8rem;">
+                        📊 {total_bookings} Buchungen von {unique_players} Spielern
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # ========================================
+            # SPIELER-STATISTIKEN BERECHNEN
+            # ========================================
+            
+            # Gruppiere nach Spieler
+            player_stats = period_data.groupby('Name').agg({
+                'Name_norm': 'first',
+                'Betrag': lambda x: pd.to_numeric(x, errors='coerce').sum(),
+                'Fehler': lambda x: (x == 'Ja').sum(),
+                'Relevant': lambda x: (x == 'Ja').sum(),
+                'Check-in': lambda x: (x == 'Ja').sum(),
+                'analysis_date': 'count'  # Anzahl Buchungen
+            }).reset_index(drop=True)
+            
+            # Neu berechnen mit korrekten Spaltennamen
+            player_stats = period_data.groupby('Name').apply(
+                lambda g: pd.Series({
+                    'Name': g['Name'].iloc[0],
+                    'Buchungen': len(g),
+                    'Umsatz': pd.to_numeric(g['Betrag'], errors='coerce').sum(),
+                    'Relevante': (g['Relevant'] == 'Ja').sum(),
+                    'Mit_Checkin': (g['Check-in'] == 'Ja').sum(),
+                    'Fehler': (g['Fehler'] == 'Ja').sum(),
+                    'Ist_Wellpass': ((g['Relevant'] == 'Ja').sum() > 0)
+                })
+            ).reset_index(drop=True)
+            
+            # Check-in Quote berechnen
+            player_stats['Checkin_Quote'] = (
+                player_stats['Mit_Checkin'] / player_stats['Relevante'].replace(0, 1) * 100
+            ).round(1)
+            
+            # Spiele pro Woche
+            weeks = max(analysis_days / 7, 1)
+            player_stats['Pro_Woche'] = (player_stats['Buchungen'] / weeks).round(1)
+            
+            # ========================================
+            # ÜBERSICHTS-METRIKEN
+            # ========================================
+            
+            # Wellpass vs Normal Vergleich
+            wellpass_players = player_stats[player_stats['Ist_Wellpass'] == True]
+            normal_players = player_stats[player_stats['Ist_Wellpass'] == False]
+            
+            avg_bookings_wellpass = wellpass_players['Buchungen'].mean() if len(wellpass_players) > 0 else 0
+            avg_bookings_normal = normal_players['Buchungen'].mean() if len(normal_players) > 0 else 0
+            
+            # Stammkunden (≥4 Buchungen im Zeitraum)
+            stammkunden = player_stats[player_stats['Buchungen'] >= 4]
+            
+            # Problem-Spieler (<50% Check-in Quote bei mind. 2 relevanten Buchungen)
+            problem_players = player_stats[
+                (player_stats['Checkin_Quote'] < 50) & 
+                (player_stats['Relevante'] >= 2)
+            ]
+            
+            st.markdown(f"""
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin: 1rem 0;">
+                <div class="metric-card animate-in">
+                    <div class="icon">👥</div>
+                    <div class="value">{len(player_stats)}</div>
+                    <div class="label">Spieler gesamt</div>
+                </div>
+                <div class="metric-card animate-in" style="animation-delay: 0.1s;">
+                    <div class="icon">🏠</div>
+                    <div class="value">{len(stammkunden)}</div>
+                    <div class="label">Stammkunden</div>
+                    <div class="delta positive">≥4 Buchungen</div>
+                </div>
+                <div class="metric-card animate-in" style="animation-delay: 0.2s;">
+                    <div class="icon">💳</div>
+                    <div class="value">{len(wellpass_players)}</div>
+                    <div class="label">Wellpass-Spieler</div>
+                    <div class="delta positive">Ø {avg_bookings_wellpass:.1f} Spiele</div>
+                </div>
+                <div class="metric-card animate-in" style="animation-delay: 0.3s;">
+                    <div class="icon">💰</div>
+                    <div class="value">{len(normal_players)}</div>
+                    <div class="label">Vollzahler</div>
+                    <div class="delta positive">Ø {avg_bookings_normal:.1f} Spiele</div>
+                </div>
+                <div class="metric-card animate-in" style="animation-delay: 0.4s;">
+                    <div class="icon">⚠️</div>
+                    <div class="value">{len(problem_players)}</div>
+                    <div class="label">Problem-Spieler</div>
+                    <div class="delta negative">&lt;50% Check-in</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # ========================================
+            # TOP SPIELER RANKINGS
+            # ========================================
+            
+            col_left, col_right = st.columns(2)
+            
+            with col_left:
+                st.markdown("##### 🏆 Top 10 - Meiste Buchungen")
+                top_bookings = player_stats.nlargest(10, 'Buchungen')[['Name', 'Buchungen', 'Pro_Woche', 'Umsatz']]
+                top_bookings['Umsatz'] = top_bookings['Umsatz'].apply(lambda x: f"€{x:.2f}")
+                top_bookings.columns = ['Spieler', 'Buchungen', 'Pro Woche', 'Umsatz']
+                st.dataframe(top_bookings, use_container_width=True, hide_index=True)
+                
+            with col_right:
+                st.markdown("##### 💰 Top 10 - Höchster Umsatz")
+                top_revenue = player_stats.nlargest(10, 'Umsatz')[['Name', 'Umsatz', 'Buchungen']]
+                top_revenue['Umsatz'] = top_revenue['Umsatz'].apply(lambda x: f"€{x:.2f}")
+                top_revenue.columns = ['Spieler', 'Umsatz', 'Buchungen']
+                st.dataframe(top_revenue, use_container_width=True, hide_index=True)
+            
+            st.markdown("---")
+            
+            # ========================================
+            # WELLPASS VS VOLLZAHLER VERGLEICH
+            # ========================================
+            
+            st.markdown("##### 🆚 Wellpass vs. Vollzahler")
+            
+            comparison_data = {
+                'Kategorie': ['Wellpass-Spieler', 'Vollzahler'],
+                'Anzahl Spieler': [len(wellpass_players), len(normal_players)],
+                'Ø Buchungen': [f"{avg_bookings_wellpass:.1f}", f"{avg_bookings_normal:.1f}"],
+                'Ø Pro Woche': [
+                    f"{wellpass_players['Pro_Woche'].mean():.1f}" if len(wellpass_players) > 0 else "0",
+                    f"{normal_players['Pro_Woche'].mean():.1f}" if len(normal_players) > 0 else "0"
+                ],
+                'Total Buchungen': [
+                    wellpass_players['Buchungen'].sum() if len(wellpass_players) > 0 else 0,
+                    normal_players['Buchungen'].sum() if len(normal_players) > 0 else 0
+                ]
+            }
+            comparison_df = pd.DataFrame(comparison_data)
+            st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+            
+            # Visualisierung
+            if len(wellpass_players) > 0 or len(normal_players) > 0:
+                fig = go.Figure(data=[
+                    go.Bar(
+                        name='Wellpass', 
+                        x=['Ø Buchungen', 'Ø Pro Woche'], 
+                        y=[avg_bookings_wellpass, wellpass_players['Pro_Woche'].mean() if len(wellpass_players) > 0 else 0],
+                        marker_color=COLORS['primary']
+                    ),
+                    go.Bar(
+                        name='Vollzahler', 
+                        x=['Ø Buchungen', 'Ø Pro Woche'], 
+                        y=[avg_bookings_normal, normal_players['Pro_Woche'].mean() if len(normal_players) > 0 else 0],
+                        marker_color=COLORS['secondary']
+                    )
+                ])
+                fig.update_layout(
+                    barmode='group', 
+                    height=300,
+                    title="Buchungsverhalten im Vergleich",
+                    yaxis_title="Anzahl"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            st.markdown("---")
+            
+            # ========================================
+            # PROBLEM-SPIELER LISTE
+            # ========================================
+            
+            if len(problem_players) > 0:
+                st.markdown("##### ⚠️ Problem-Spieler (Check-in Quote < 50%)")
+                st.caption("Diese Spieler vergessen häufig den Wellpass Check-in")
+                
+                problem_display = problem_players[['Name', 'Relevante', 'Mit_Checkin', 'Checkin_Quote', 'Fehler']].copy()
+                problem_display.columns = ['Spieler', 'Relevante Buchungen', 'Mit Check-in', 'Quote %', 'Offene Fehler']
+                problem_display = problem_display.sort_values('Quote %')
+                
+                # Färbung basierend auf Quote
+                st.dataframe(
+                    problem_display, 
+                    use_container_width=True, 
+                    hide_index=True,
+                    column_config={
+                        "Quote %": st.column_config.ProgressColumn(
+                            "Quote %",
+                            help="Check-in Quote",
+                            min_value=0,
+                            max_value=100,
+                        ),
+                    }
+                )
+            else:
+                render_success_box("Keine Problem-Spieler! Alle haben gute Check-in Quoten 🎉")
+            
+            st.markdown("---")
+            
+            # ========================================
+            # STAMMKUNDEN ÜBERSICHT
+            # ========================================
+            
+            st.markdown("##### 🏠 Stammkunden (≥4 Buchungen)")
+            
+            if len(stammkunden) > 0:
+                stammkunden_display = stammkunden[['Name', 'Buchungen', 'Pro_Woche', 'Umsatz', 'Checkin_Quote']].copy()
+                stammkunden_display['Umsatz'] = stammkunden_display['Umsatz'].apply(lambda x: f"€{x:.2f}")
+                stammkunden_display.columns = ['Spieler', 'Buchungen', 'Pro Woche', 'Umsatz', 'Check-in %']
+                stammkunden_display = stammkunden_display.sort_values('Buchungen', ascending=False)
+                
+                st.dataframe(stammkunden_display, use_container_width=True, hide_index=True)
+                
+                # Stammkunden-Anteil am Umsatz
+                stammkunden_umsatz = player_stats[player_stats['Buchungen'] >= 4]['Umsatz'].sum()
+                gesamt_umsatz = player_stats['Umsatz'].sum()
+                stammkunden_anteil = (stammkunden_umsatz / gesamt_umsatz * 100) if gesamt_umsatz > 0 else 0
+                
+                st.markdown(f"""
+                    <div class="success-box">
+                        💡 <strong>{len(stammkunden)} Stammkunden</strong> ({len(stammkunden)/len(player_stats)*100:.0f}% aller Spieler) 
+                        generieren <strong>€{stammkunden_umsatz:.2f}</strong> ({stammkunden_anteil:.0f}% des Umsatzes)
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("Noch keine Stammkunden im gewählten Zeitraum")
+            
+            st.markdown("---")
+            
+            # ========================================
+            # ALLE SPIELER (ausklappbar)
+            # ========================================
+            
+            with st.expander(f"📋 Alle {len(player_stats)} Spieler anzeigen", expanded=False):
+                all_players_display = player_stats[['Name', 'Buchungen', 'Pro_Woche', 'Umsatz', 'Checkin_Quote', 'Ist_Wellpass']].copy()
+                all_players_display['Umsatz'] = all_players_display['Umsatz'].apply(lambda x: f"€{x:.2f}")
+                all_players_display['Typ'] = all_players_display['Ist_Wellpass'].apply(lambda x: '💳 Wellpass' if x else '💰 Vollzahler')
+                all_players_display = all_players_display[['Name', 'Buchungen', 'Pro_Woche', 'Umsatz', 'Checkin_Quote', 'Typ']]
+                all_players_display.columns = ['Spieler', 'Buchungen', 'Pro Woche', 'Umsatz', 'Check-in %', 'Typ']
+                all_players_display = all_players_display.sort_values('Buchungen', ascending=False)
+                
+                st.dataframe(all_players_display, use_container_width=True, hide_index=True, height=600)
+
+
+# ========================================
 # FOOTER
 # ========================================
 
@@ -2533,7 +2820,7 @@ st.markdown(f"""
     <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🏔️🎾</div>
     <div style="font-weight: 600; font-size: 1.1rem;">halle11</div>
     <div style="font-size: 0.85rem; opacity: 0.9; margin-top: 0.3rem;">
-        v10.0 Design Edition · ⚡ Famiglia Schneiderhan powered
+        v11.0 Analytics Edition · ⚡ Famiglia Schneiderhan powered
     </div>
     <div style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.5rem;">
         🎾 Padel & Tennis am Berg · Made with ❤️
