@@ -1318,7 +1318,7 @@ favicon_b64 = base64.b64encode(FAVICON_SVG.encode()).decode()
 st.set_page_config(
     page_title="halle11 | Padel & Tennis", 
     layout="wide", 
-    page_icon="🏔️",
+    page_icon="favicon.ico",
     initial_sidebar_state="expanded"
 )
 
