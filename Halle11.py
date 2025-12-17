@@ -1313,12 +1313,17 @@ def render_learned_matches_manager():
 # MAIN APP
 # ========================================
 
-# SVG als Data URI für Favicon
-favicon_b64 = base64.b64encode(FAVICON_SVG.encode()).decode()
+# Favicon laden mit Fallback
+try:
+    from PIL import Image
+    favicon = Image.open("favicon.ico")
+except:
+    favicon = "🏔️"  # Fallback auf Emoji
+
 st.set_page_config(
     page_title="halle11 | Padel & Tennis", 
     layout="wide", 
-    page_icon="favicon.ico",
+    page_icon=favicon,
     initial_sidebar_state="expanded"
 )
 
@@ -1512,6 +1517,42 @@ st.markdown(f"""
     [data-testid="stSidebar"] h2, 
     [data-testid="stSidebar"] h3 {{
         color: white !important;
+    }}
+    
+    /* ✅ ALLE Sidebar-Texte weiß */
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stFileUploader label,
+    [data-testid="stSidebar"] .stFileUploader span,
+    [data-testid="stSidebar"] .stFileUploader p,
+    [data-testid="stSidebar"] .stSelectbox label,
+    [data-testid="stSidebar"] .stTextInput label,
+    [data-testid="stSidebar"] .stNumberInput label,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] div {{
+        color: white !important;
+    }}
+    
+    /* File Uploader Box Styling */
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] {{
+        color: white !important;
+    }}
+    
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] section {{
+        background: rgba(255,255,255,0.1) !important;
+        border: 2px dashed rgba(255,255,255,0.4) !important;
+        border-radius: 12px !important;
+    }}
+    
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] section:hover {{
+        border-color: rgba(255,255,255,0.8) !important;
+        background: rgba(255,255,255,0.15) !important;
+    }}
+    
+    [data-testid="stSidebar"] .stButton button {{
+        background: {COLORS['secondary']} !important;
+        color: {COLORS['text']} !important;
+        font-weight: 600 !important;
     }}
     
     /* ===== TABS ===== */
