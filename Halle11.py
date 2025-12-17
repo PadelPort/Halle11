@@ -686,7 +686,7 @@ def get_gsheet_client():
         st.error(f"❌ Google Sheets Fehler: {e}")
         return None
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=600, show_spinner=False)  # 10 min cache to reduce API calls
 def loadsheet(name, cols=None):
     try:
         sheet = get_gsheet_client()
@@ -788,6 +788,31 @@ def save_playtomic_raw(df):
     except Exception as e:
         st.error(f"❌ Fehler: {e}")
         return False
+
+
+def get_corrections_cached():
+    """
+    Lädt Corrections mit Session-Cache um Rate Limits zu reduzieren.
+    Cache wird alle 60 Sekunden aktualisiert oder bei Änderungen invalidiert.
+    """
+    current_time = time.time()
+    cache_age = current_time - st.session_state.get('corrections_cache_time', 0)
+    
+    # Cache ist 60 Sekunden gültig
+    if st.session_state.get('corrections_cache') is not None and cache_age < 60:
+        return st.session_state.corrections_cache
+    
+    # Neu laden
+    corr = loadsheet("corrections", ['key', 'date', 'behoben', 'timestamp'])
+    st.session_state.corrections_cache = corr
+    st.session_state.corrections_cache_time = current_time
+    return corr
+
+
+def invalidate_corrections_cache():
+    """Invalidiert den Corrections-Cache nach Änderungen."""
+    st.session_state.corrections_cache = None
+    st.session_state.corrections_cache_time = 0
 
 
 # ========================================
@@ -1011,13 +1036,53 @@ def render_name_matching_interface(fehler_row, ci_df, mapping, rejected_matches,
     
     matches = advanced_fuzzy_match(name, checkin_names, mapping, rejected_matches, already_matched)
     
-    if not matches:
-        st.info("💡 Keine Vorschläge")
+    # Show suggestions if any
+    if matches:
+        st.markdown("##### 🔍 Vorschläge")
+        for i, (match_name, score, match_type) in enumerate(matches):
+            original_match = ci_df[ci_df['Name_norm'] == match_name].iloc[0]['Name']
+            confidence = "✅" if match_type == 'learned' else ("🟢" if score >= 90 else ("🟡" if score >= 75 else "🔴"))
+            
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.caption(f"{confidence} {original_match} ({score}%)")
+            with col2:
+                if st.button("✅", key=f"confirm_{key_base}_{i}", use_container_width=True):
+                    mapping[name] = {'checkin_name': match_name, 'confidence': score, 'timestamp': datetime.now().isoformat(), 'confirmed_by': 'user'}
+                    save_name_mapping(mapping)
+                    if (name, match_name) in rejected_matches:
+                        remove_rejected_match(name, match_name)
+                    corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
+                    key = f"{fehler_row['Name_norm']}_{fehler_row['Datum']}_{fehler_row['Betrag']}"
+                    if not corr.empty and 'key' in corr.columns:
+                        corr = corr[corr['key'] != key]
+                    corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': fehler_row['Datum'], 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
+                    savesheet(corr, "corrections")
+                    st.rerun()
+            with col3:
+                if st.button("❌", key=f"reject_{key_base}_{i}", use_container_width=True):
+                    save_rejected_match(name, match_name)
+                    st.rerun()
+    else:
+        st.info("💡 Keine automatischen Vorschläge gefunden")
+    
+    # ✅ MANUELLES MATCHING - IMMER ANZEIGEN
+    st.markdown("##### ✏️ Manuell zuordnen")
+    if checkin_names:
+        # Build dropdown options with original names
+        dropdown_options = [''] + [ci_df[ci_df['Name_norm'] == n].iloc[0]['Name'] for n in checkin_names if n not in already_matched]
+        
         col1, col2 = st.columns([3, 1])
         with col1:
-            manual_match = st.selectbox("Manuell:", options=[''] + [ci_df[ci_df['Name_norm'] == n].iloc[0]['Name'] for n in checkin_names], key=f"manual_only_{key_base}", label_visibility="collapsed")
+            manual_match = st.selectbox(
+                "Check-in Name auswählen:", 
+                options=dropdown_options, 
+                key=f"manual_{key_base}", 
+                label_visibility="collapsed",
+                help="Wähle den passenden Namen aus der Check-in Liste"
+            )
         with col2:
-            if st.button("💾", key=f"save_manual_only_{key_base}", disabled=not manual_match, use_container_width=True):
+            if st.button("💾 Speichern", key=f"save_manual_{key_base}", disabled=not manual_match, use_container_width=True):
                 if manual_match:
                     manual_norm = ci_df[ci_df['Name'] == manual_match].iloc[0]['Name_norm']
                     mapping[name] = {'checkin_name': manual_norm, 'confidence': 100, 'timestamp': datetime.now().isoformat(), 'confirmed_by': 'manual'}
@@ -1028,36 +1093,11 @@ def render_name_matching_interface(fehler_row, ci_df, mapping, rejected_matches,
                         corr = corr[corr['key'] != key]
                     corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': fehler_row['Datum'], 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
                     savesheet(corr, "corrections")
-                    st.success("✅")
+                    st.success("✅ Manuell gematcht!")
                     time.sleep(0.5)
                     st.rerun()
-        return
-    
-    st.markdown("##### 🔍 Vorschläge")
-    for i, (match_name, score, match_type) in enumerate(matches):
-        original_match = ci_df[ci_df['Name_norm'] == match_name].iloc[0]['Name']
-        confidence = "✅" if match_type == 'learned' else ("🟢" if score >= 90 else ("🟡" if score >= 75 else "🔴"))
-        
-        col1, col2, col3 = st.columns([3, 1, 1])
-        with col1:
-            st.caption(f"{confidence} {original_match} ({score}%)")
-        with col2:
-            if st.button("✅", key=f"confirm_{key_base}_{i}", use_container_width=True):
-                mapping[name] = {'checkin_name': match_name, 'confidence': score, 'timestamp': datetime.now().isoformat(), 'confirmed_by': 'user'}
-                save_name_mapping(mapping)
-                if (name, match_name) in rejected_matches:
-                    remove_rejected_match(name, match_name)
-                corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
-                key = f"{fehler_row['Name_norm']}_{fehler_row['Datum']}_{fehler_row['Betrag']}"
-                if not corr.empty and 'key' in corr.columns:
-                    corr = corr[corr['key'] != key]
-                corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': fehler_row['Datum'], 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
-                savesheet(corr, "corrections")
-                st.rerun()
-        with col3:
-            if st.button("❌", key=f"reject_{key_base}_{i}", use_container_width=True):
-                save_rejected_match(name, match_name)
-                st.rerun()
+    else:
+        st.caption("Keine Check-ins vorhanden")
 
 def render_learned_matches_manager():
     mapping = load_name_mapping()
@@ -1108,6 +1148,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ✅ KEEP-ALIVE: Verhindert dass die App einschläft (alle 5 Minuten ein Ping)
+st.markdown("""
+<script>
+    // Keep-alive ping every 5 minutes to prevent Streamlit Cloud from sleeping
+    setInterval(function() {
+        // Trigger a tiny interaction to keep the connection alive
+        const event = new Event('mousemove');
+        document.dispatchEvent(event);
+        console.log('🎾 halle11 keep-alive ping');
+    }, 300000); // 5 minutes = 300000ms
+</script>
+""", unsafe_allow_html=True)
+
 validate_secrets()
 
 if not check_password():
@@ -1123,6 +1176,11 @@ if 'checkins_all' not in st.session_state:
     st.session_state.checkins_all = pd.DataFrame()
 if 'day_idx' not in st.session_state:
     st.session_state.day_idx = 0
+# ✅ Session-Cache für weniger API Calls
+if 'corrections_cache' not in st.session_state:
+    st.session_state.corrections_cache = None
+if 'corrections_cache_time' not in st.session_state:
+    st.session_state.corrections_cache_time = 0
 
 if not st.session_state.data_loaded:
     dates = get_dates()
@@ -1605,6 +1663,87 @@ with tab1:
                             send_wellpass_whatsapp_test(row)
     else:
         st.success("✅ Keine offenen Fehler! Por cuatro! 🎉")
+    
+    # ✅ OFFENE FEHLER DER LETZTEN 5 TAGE
+    st.markdown("---")
+    with st.expander("📋 Offene Fehler der letzten 5 Tage", expanded=False):
+        # Lade Buchungen und Corrections
+        all_buchungen = loadsheet("buchungen")
+        all_corrections = loadsheet("corrections", ['key', 'behoben'])
+        
+        if not all_buchungen.empty and 'analysis_date' in all_buchungen.columns:
+            # Letzte 5 Tage berechnen (ohne heute)
+            today = datetime.strptime(st.session_state.current_date, "%Y-%m-%d").date()
+            past_dates = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(1, 6)]
+            
+            # Filtere auf Fehler der letzten 5 Tage
+            past_fehler = all_buchungen[
+                (all_buchungen['analysis_date'].isin(past_dates)) & 
+                (all_buchungen['Fehler'] == 'Ja')
+            ].copy()
+            
+            if not past_fehler.empty:
+                # Prüfe welche behoben sind
+                open_fehler = []
+                for idx, row in past_fehler.iterrows():
+                    key = f"{row['Name_norm']}_{row['Datum']}_{row['Betrag']}"
+                    is_behoben = False
+                    if not all_corrections.empty and 'key' in all_corrections.columns:
+                        match_corr = all_corrections[all_corrections['key'] == key]
+                        if not match_corr.empty:
+                            is_behoben = bool(match_corr.iloc[0].get('behoben', False))
+                    
+                    if not is_behoben:
+                        open_fehler.append({
+                            'Datum': row['Datum'],
+                            'Name': row['Name'],
+                            'Betrag': f"€{row['Betrag']}",
+                            'Zeit': row.get('Service_Zeit', ''),
+                            'Sport': '🎾P' if str(row.get('Sport', '')).upper() == 'PADEL' else '🎾T',
+                            '_key': key,
+                            '_row': row
+                        })
+                
+                if open_fehler:
+                    st.warning(f"⚠️ {len(open_fehler)} offene Fehler aus den letzten 5 Tagen")
+                    
+                    # Gruppiere nach Datum
+                    from collections import defaultdict
+                    by_date = defaultdict(list)
+                    for f in open_fehler:
+                        by_date[f['Datum']].append(f)
+                    
+                    for datum in sorted(by_date.keys(), reverse=True):
+                        fehler_list = by_date[datum]
+                        datum_display = datetime.strptime(datum, "%Y-%m-%d").strftime("%d.%m.%Y")
+                        
+                        st.markdown(f"**📅 {datum_display}** ({len(fehler_list)} offen)")
+                        
+                        for f in fehler_list:
+                            col1, col2 = st.columns([4, 1])
+                            with col1:
+                                st.caption(f"🔴 {f['Name']} | {f['Betrag']} | {f['Zeit']} {f['Sport']}")
+                            with col2:
+                                if st.button("✅", key=f"fix_past_{f['_key']}", use_container_width=True):
+                                    corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
+                                    if not corr.empty and 'key' in corr.columns:
+                                        corr = corr[corr['key'] != f['_key']]
+                                    corr = pd.concat([corr, pd.DataFrame([{
+                                        'key': f['_key'], 
+                                        'date': f['Datum'], 
+                                        'behoben': True, 
+                                        'timestamp': datetime.now().isoformat()
+                                    }])], ignore_index=True)
+                                    savesheet(corr, "corrections")
+                                    st.rerun()
+                        
+                        st.markdown("---")
+                else:
+                    st.success("✅ Keine offenen Fehler aus den letzten 5 Tagen!")
+            else:
+                st.info("Keine Fehler in den letzten 5 Tagen gefunden")
+        else:
+            st.info("Keine Buchungsdaten vorhanden")
     
     # ✅ CHARTS NACH UNTEN
     if gesamt_mit_wellpass > 0:
