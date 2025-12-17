@@ -33,6 +33,12 @@ MITARBEITER = {
     'Spieler 1', 'Spieler 2', 'Spieler 3', 'Spieler 4', 'Playtomic'
 }
 
+# ✅ Diese Check-ins sind IMMER grün (Familie/Bekannte ohne Wellpass-Pflicht)
+ALWAYS_GREEN_CHECKINS = {
+    'marcel sidorov', 'mattia niklas mauta', 'thomas otto', 'andrea otto',
+    'andreas schneiderhan', 'ludmila sidorov', 'tanja schneiderhan'
+}
+
 # 🎾 PADEL-WÖRTERBUCH FÜR EASTER EGGS
 PADEL_TERMS = {
     'laden': [
@@ -1493,6 +1499,9 @@ with tab1:
         rv = df[df['Relevant'] == 'Ja'].sort_values('Name').copy()
         
         if not rv.empty:
+            # ✅ Toggle: Nur Probleme anzeigen (grüne ausblenden)
+            show_only_problems = st.checkbox("🔍 Nur Probleme", value=True, key="hide_green_bookings", help="Blendet 100% gematchte Einträge aus")
+            
             # Status-Badge vor Namen
             def add_status_badge(row):
                 if row['Fehler'] == 'Ja':
@@ -1503,24 +1512,39 @@ with tab1:
                     return f"⚪ {row['Name']}"
             
             rv['Spieler'] = rv.apply(add_status_badge, axis=1)
+            rv['_is_green'] = rv['Check-in'] == 'Ja'
+            
+            # Filtere wenn Toggle aktiv
+            if show_only_problems:
+                rv_display = rv[rv['_is_green'] == False].copy()
+                hidden_count = len(rv) - len(rv_display)
+            else:
+                rv_display = rv.copy()
+                hidden_count = 0
             
             # Sport-Icon
-            if 'Sport' in rv.columns:
-                rv['🏆'] = rv['Sport'].apply(lambda x: '🎾P' if str(x).upper() == 'PADEL' else ('🎾T' if str(x).upper() == 'TENNIS' else ''))
+            if 'Sport' in rv_display.columns:
+                rv_display['🏆'] = rv_display['Sport'].apply(lambda x: '🎾P' if str(x).upper() == 'PADEL' else ('🎾T' if str(x).upper() == 'TENNIS' else ''))
             
             display_cols = ['Spieler', 'Betrag']
-            if 'Service_Zeit' in rv.columns:
+            if 'Service_Zeit' in rv_display.columns:
                 display_cols.append('Service_Zeit')
-            if '🏆' in rv.columns:
+            if '🏆' in rv_display.columns:
                 display_cols.append('🏆')
             
-            # Dynamische Höhe - alle Zeilen sichtbar
-            row_height = 35
-            header_height = 40
-            table_height = min(len(rv) * row_height + header_height, 1200)
+            if not rv_display.empty:
+                # Dynamische Höhe - alle Zeilen sichtbar
+                row_height = 35
+                header_height = 40
+                table_height = min(len(rv_display) * row_height + header_height, 1200)
+                
+                st.dataframe(rv_display[display_cols], use_container_width=True, hide_index=True, height=table_height)
             
-            st.dataframe(rv[display_cols], use_container_width=True, hide_index=True, height=table_height)
-            st.caption(f"🟢 Check-in OK · 🔴 Fehlt · ⚪ Nicht relevant")
+            # Caption mit Info über ausgeblendete
+            if hidden_count > 0:
+                st.caption(f"🟢 {hidden_count} OK ausgeblendet · 🔴 Fehlt · ⚪ Nicht relevant")
+            else:
+                st.caption(f"🟢 Check-in OK · 🔴 Fehlt · ⚪ Nicht relevant")
         else:
             st.info("Keine relevanten Buchungen")
     
@@ -1549,6 +1573,11 @@ with tab1:
             # Status-Badge mit Mapping-Berücksichtigung
             def add_gespielt_badge_with_mapping(row):
                 ci_name_norm = row.get('Name_norm', '')
+                ci_name_lower = row.get('Name', '').lower().strip()
+                
+                # 0) Always green list - Familie/Bekannte
+                if ci_name_lower in ALWAYS_GREEN_CHECKINS:
+                    return f"🟢 {row['Name']}"
                 
                 # 1) Direct match: Check-in name exists in bookings
                 if ci_name_norm in booking_names_today:
