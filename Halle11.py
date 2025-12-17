@@ -529,7 +529,7 @@ def check_password():
     if st.session_state.get("password_correct", False):
         return True
     
-    st.markdown("<h1 style='text-align: center;'>🎾 halle11</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>🏔️🎾 halle11</h1>", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #666;'>🔒 Login</h3>", unsafe_allow_html=True)
     st.markdown("---")
     
@@ -1200,7 +1200,7 @@ if not st.session_state.data_loaded:
             st.session_state.current_date = latest_date.strftime("%Y-%m-%d")
             st.session_state.data_loaded = True
 
-st.markdown("<h1 style='text-align: center;'>🎾 halle11</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🏔️🎾 halle11</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #888; font-size: 14px;'>⚡ Famiglia Schneiderhan powered</p>", unsafe_allow_html=True)
 
 # ========================================
@@ -1499,24 +1499,23 @@ with tab1:
         rv = df[df['Relevant'] == 'Ja'].sort_values('Name').copy()
         
         if not rv.empty:
-            # ✅ Toggle: Nur Probleme anzeigen (grüne ausblenden)
-            show_only_problems = st.checkbox("🔍 Nur Probleme", value=True, key="hide_green_bookings", help="Blendet 100% gematchte Einträge aus")
+            # ✅ Toggle: Nur Probleme anzeigen (alles OK ausblenden)
+            show_only_problems = st.checkbox("🔍 Nur Probleme (Für Marci ❤️)", value=True, key="hide_green_bookings", help="Blendet alle OK-Einträge aus")
             
-            # Status-Badge vor Namen
+            # Status-Badge vor Namen - ⚪ wird jetzt auch 🟢
             def add_status_badge(row):
                 if row['Fehler'] == 'Ja':
                     return f"🔴 {row['Name']}"
-                elif row['Check-in'] == 'Ja':
-                    return f"🟢 {row['Name']}"
                 else:
-                    return f"⚪ {row['Name']}"
+                    # Sowohl Check-in OK als auch nicht-relevant = grün
+                    return f"🟢 {row['Name']}"
             
             rv['Spieler'] = rv.apply(add_status_badge, axis=1)
-            rv['_is_green'] = rv['Check-in'] == 'Ja'
+            rv['_is_problem'] = rv['Fehler'] == 'Ja'
             
-            # Filtere wenn Toggle aktiv
+            # Filtere wenn Toggle aktiv - zeige nur Probleme (rot)
             if show_only_problems:
-                rv_display = rv[rv['_is_green'] == False].copy()
+                rv_display = rv[rv['_is_problem'] == True].copy()
                 hidden_count = len(rv) - len(rv_display)
             else:
                 rv_display = rv.copy()
@@ -1539,12 +1538,14 @@ with tab1:
                 table_height = min(len(rv_display) * row_height + header_height, 1200)
                 
                 st.dataframe(rv_display[display_cols], use_container_width=True, hide_index=True, height=table_height)
+            else:
+                st.success("✅ Alle OK!")
             
             # Caption mit Info über ausgeblendete
             if hidden_count > 0:
-                st.caption(f"🟢 {hidden_count} OK ausgeblendet · 🔴 Fehlt · ⚪ Nicht relevant")
+                st.caption(f"🟢 {hidden_count} OK ausgeblendet · 🔴 {len(rv_display)} offen")
             else:
-                st.caption(f"🟢 Check-in OK · 🔴 Fehlt · ⚪ Nicht relevant")
+                st.caption(f"🟢 Check-in OK · 🔴 Fehlt")
         else:
             st.info("Keine relevanten Buchungen")
     
@@ -1553,6 +1554,9 @@ with tab1:
         
         if ci_df is not None and not ci_df.empty:
             ci_view = ci_df.sort_values('Name').copy()
+            
+            # ✅ Toggle: Nur Probleme anzeigen
+            show_only_ci_problems = st.checkbox("🔍 Nur Probleme (Für Marci ❤️)", value=True, key="hide_green_checkins", help="Blendet alle OK-Check-ins aus")
             
             # Load name mapping for inverse lookup
             mapping = load_name_mapping()
@@ -1570,41 +1574,58 @@ with tab1:
             # Get all booking names for today (normalized)
             booking_names_today = set(df['Name_norm'].tolist()) if 'Name_norm' in df.columns else set()
             
-            # Status-Badge mit Mapping-Berücksichtigung
+            # Status-Badge mit Mapping-Berücksichtigung + _is_green Flag
             def add_gespielt_badge_with_mapping(row):
                 ci_name_norm = row.get('Name_norm', '')
                 ci_name_lower = row.get('Name', '').lower().strip()
                 
                 # 0) Always green list - Familie/Bekannte
                 if ci_name_lower in ALWAYS_GREEN_CHECKINS:
-                    return f"🟢 {row['Name']}"
+                    return f"🟢 {row['Name']}", True
                 
                 # 1) Direct match: Check-in name exists in bookings
                 if ci_name_norm in booking_names_today:
-                    return f"🟢 {row['Name']}"
+                    return f"🟢 {row['Name']}", True
                 
                 # 2) Mapped match: Check-in name was mapped to a booking name
                 if ci_name_norm in inverse_mapping:
                     mapped_buchung_name = inverse_mapping[ci_name_norm]
                     if mapped_buchung_name in booking_names_today:
-                        return f"🟢 {row['Name']}"
+                        return f"🟢 {row['Name']}", True
                 
                 # 3) No match found
-                return f"🔴 {row['Name']}"
+                return f"🔴 {row['Name']}", False
             
-            ci_view['Spieler'] = ci_view.apply(add_gespielt_badge_with_mapping, axis=1)
+            # Apply and split result
+            ci_view['_result'] = ci_view.apply(add_gespielt_badge_with_mapping, axis=1)
+            ci_view['Spieler'] = ci_view['_result'].apply(lambda x: x[0])
+            ci_view['_is_green'] = ci_view['_result'].apply(lambda x: x[1])
+            
+            # Filter wenn Toggle aktiv
+            if show_only_ci_problems:
+                ci_display = ci_view[ci_view['_is_green'] == False].copy()
+                hidden_ci_count = len(ci_view) - len(ci_display)
+            else:
+                ci_display = ci_view.copy()
+                hidden_ci_count = 0
             
             display_cols_ci = ['Spieler', 'Checkin_Zeit']
             
-            # Dynamische Höhe
-            row_height = 35
-            header_height = 40
-            table_height = min(len(ci_view) * row_height + header_height, 1200)
+            if not ci_display.empty:
+                # Dynamische Höhe
+                row_height = 35
+                header_height = 40
+                table_height = min(len(ci_display) * row_height + header_height, 1200)
+                
+                st.dataframe(ci_display[display_cols_ci], use_container_width=True, hide_index=True, height=table_height)
+            else:
+                st.success("✅ Alle OK!")
             
-            # ✅ Färbung für Gespielt-Status
-            styled_ci = ci_view[display_cols_ci]
-            st.dataframe(styled_ci, use_container_width=True, hide_index=True, height=table_height)
-            st.caption(f"🟢 Buchung vorhanden · 🔴 Keine Buchung gefunden")
+            # Caption
+            if hidden_ci_count > 0:
+                st.caption(f"🟢 {hidden_ci_count} OK ausgeblendet · 🔴 {len(ci_display)} ohne Buchung")
+            else:
+                st.caption(f"🟢 Buchung vorhanden · 🔴 Keine Buchung gefunden")
         else:
             st.info("Keine Check-ins")
     
@@ -1890,4 +1911,4 @@ with tab2:
 # ========================================
 
 st.markdown("---")
-st.markdown("<p style='text-align: center; color: #888; font-size: 12px;'>🎾 halle11 v7.2 · ⚡ Famiglia Schneiderhan powered</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #888; font-size: 12px;'>🏔️🎾 halle11 v9.2 · ⚡ Famiglia Schneiderhan powered</p>", unsafe_allow_html=True)
