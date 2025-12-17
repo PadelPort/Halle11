@@ -12,6 +12,92 @@ from calendar import monthrange
 import random
 import hashlib
 import re
+import base64
+
+
+# ========================================
+# 🎨 DESIGN & BRANDING
+# ========================================
+
+# Farbschema halle11
+COLORS = {
+    'primary': '#1B5E20',      # Dunkelgrün (Berg/Wald)
+    'primary_light': '#4CAF50', # Hellgrün
+    'secondary': '#FFB300',     # Tennis-Gelb/Gold
+    'accent': '#FF5722',        # Padel-Orange
+    'success': '#43A047',       # Erfolg-Grün
+    'error': '#E53935',         # Fehler-Rot
+    'warning': '#FB8C00',       # Warnung-Orange
+    'background': '#F8FBF8',    # Soft-Grün-Weiß
+    'card_bg': '#FFFFFF',       # Karten-Hintergrund
+    'text': '#1A1A1A',          # Haupttext
+    'text_light': '#666666',    # Sekundärtext
+    'border': '#E0E0E0',        # Rahmen
+}
+
+# SVG Icon als Base64 (Berg + Tennisball)
+FAVICON_SVG = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bergGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" style="stop-color:#1B5E20"/>
+      <stop offset="100%" style="stop-color:#4CAF50"/>
+    </linearGradient>
+    <linearGradient id="ballGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#C8E600"/>
+      <stop offset="100%" style="stop-color:#9ACD32"/>
+    </linearGradient>
+  </defs>
+  <!-- Berg -->
+  <polygon points="10,85 50,20 90,85" fill="url(#bergGrad)"/>
+  <polygon points="30,85 50,45 70,85" fill="#2E7D32" opacity="0.5"/>
+  <!-- Schnee -->
+  <polygon points="42,35 50,20 58,35 53,38 50,32 47,38" fill="white"/>
+  <!-- Tennisball -->
+  <circle cx="75" cy="30" r="18" fill="url(#ballGrad)" stroke="#7CB342" stroke-width="2"/>
+  <path d="M 63 22 Q 75 35 63 42" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M 87 22 Q 75 35 87 42" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+</svg>
+'''
+
+# Sound-Effekt als Base64 (kurzer "Pling" Sound)
+# Generiert als Web Audio - wird als JS eingebunden
+WHATSAPP_SOUND_JS = '''
+function playWhatsAppSound() {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.1);
+    oscillator.frequency.setValueAtTime(1320, audioContext.currentTime + 0.2);
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.4);
+}
+'''
+
+# Konfetti Animation CSS
+CONFETTI_CSS = '''
+@keyframes confetti-fall {
+    0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+.confetti {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    top: -10px;
+    z-index: 9999;
+    animation: confetti-fall 3s ease-out forwards;
+}
+'''
 
 
 # ========================================
@@ -228,6 +314,70 @@ def get_wellpass_wert(for_date: date) -> float:
     """Gibt den passenden Wellpass-Payout für ein Datum zurück."""
     return 12.50
 
+
+# ========================================
+# 🎨 DESIGN HELPER FUNKTIONEN
+# ========================================
+
+def render_header():
+    """Rendert den stylischen Header mit Logo."""
+    st.markdown("""
+        <div class="main-header animate-in">
+            <h1>🏔️ halle11</h1>
+            <div class="subtitle">⚡ Famiglia Schneiderhan powered | Padel & Tennis am Berg</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+
+def render_metric_card(icon: str, value: str, label: str, card_type: str = "", delta: str = None, delta_positive: bool = True):
+    """Rendert eine stylische Metriken-Karte."""
+    delta_html = ""
+    if delta:
+        delta_class = "positive" if delta_positive else "negative"
+        delta_html = f'<div class="delta {delta_class}">{delta}</div>'
+    
+    return f"""
+        <div class="metric-card {card_type} animate-in">
+            <div class="icon">{icon}</div>
+            <div class="value">{value}</div>
+            <div class="label">{label}</div>
+            {delta_html}
+        </div>
+    """
+
+
+def render_metric_row(metrics: list):
+    """Rendert eine Reihe von Metriken-Karten."""
+    cols = st.columns(len(metrics))
+    for i, metric in enumerate(metrics):
+        with cols[i]:
+            st.markdown(render_metric_card(**metric), unsafe_allow_html=True)
+
+
+def render_status_badge(text: str, status: str = "success"):
+    """Rendert ein Status-Badge."""
+    return f'<span class="status-badge {status}">{text}</span>'
+
+
+def trigger_confetti():
+    """Triggert Konfetti-Animation via JavaScript."""
+    st.markdown("<script>triggerConfetti();</script>", unsafe_allow_html=True)
+
+
+def play_sound():
+    """Spielt WhatsApp Sound via JavaScript."""
+    st.markdown("<script>playWhatsAppSound();</script>", unsafe_allow_html=True)
+
+
+def render_success_box(message: str):
+    """Rendert eine Erfolgs-Box."""
+    st.markdown(f'<div class="success-box">✅ {message}</div>', unsafe_allow_html=True)
+
+
+def render_error_box(message: str):
+    """Rendert eine Fehler-Box."""
+    st.markdown(f'<div class="error-box">❌ {message}</div>', unsafe_allow_html=True)
+
 def send_wellpass_whatsapp_to_player(fehler_row: pd.Series) -> bool:
     """Sendet WhatsApp-Template-Nachricht an den Spieler."""
     try:
@@ -285,6 +435,7 @@ def send_wellpass_whatsapp_to_player(fehler_row: pd.Series) -> bool:
         )
 
         st.success(f"✅ WhatsApp an {full_name} gesendet (SID: {msg.sid})")
+        play_sound()  # 🔊 Sound-Effekt
         log_whatsapp_sent(fehler_row, to_number)
         return True
 
@@ -529,19 +680,35 @@ def check_password():
     if st.session_state.get("password_correct", False):
         return True
     
-    st.markdown("<h1 style='text-align: center;'>🏔️🎾 halle11</h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center; color: #666;'>🔒 Login</h3>", unsafe_allow_html=True)
-    st.markdown("---")
+    # ✅ Stylischer Login-Screen
+    st.markdown("""
+        <div class="main-header" style="margin-top: 3rem;">
+            <h1>🏔️ halle11</h1>
+            <div class="subtitle">Padel & Tennis am Berg</div>
+        </div>
+    """, unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
+        st.markdown("""
+            <div style="background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-top: 2rem;">
+                <h3 style="text-align: center; color: #1B5E20; margin-bottom: 1.5rem;">🔒 Anmelden</h3>
+            </div>
+        """, unsafe_allow_html=True)
+        
         st.text_input("🔑 Passwort:", type="password", on_change=entered, key="password")
         
         if st.session_state.get("password_correct") == False:
-            st.error("😕 Falsches Passwort!")
+            render_error_box("Falsches Passwort!")
         
-        st.success("🍪 30 Tage eingeloggt bleiben")
-        st.caption("⚡ Famiglia Schneiderhan powered")
+        st.markdown("""
+            <div style="text-align: center; margin-top: 1rem; padding: 1rem; background: #E8F5E9; border-radius: 12px;">
+                <span style="color: #2E7D32;">🍪 30 Tage eingeloggt bleiben</span>
+            </div>
+            <p style="text-align: center; color: #888; margin-top: 1rem; font-size: 12px;">
+                ⚡ Famiglia Schneiderhan powered
+            </p>
+        """, unsafe_allow_html=True)
     
     return False
 
@@ -565,6 +732,7 @@ def send_whatsapp_message(to_number, message_text):
         client = Client(account_sid, auth_token)
         message = client.messages.create(from_=from_number, body=message_text, to=to_number)
         st.success(f"✅ WhatsApp gesendet! SID: {message.sid}")
+        play_sound()  # 🔊 Sound-Effekt
         return True
     except Exception as e:
         st.error(f"❌ WhatsApp-Fehler: {e}")
@@ -1145,25 +1313,342 @@ def render_learned_matches_manager():
 # MAIN APP
 # ========================================
 
-st.set_page_config(page_title="halle11", layout="wide", page_icon="🎾")
+# SVG als Data URI für Favicon
+favicon_b64 = base64.b64encode(FAVICON_SVG.encode()).decode()
+st.set_page_config(
+    page_title="halle11 | Padel & Tennis", 
+    layout="wide", 
+    page_icon="🏔️",
+    initial_sidebar_state="expanded"
+)
 
-st.markdown("""
+# ========================================
+# 🎨 KOMPLETT NEUES CSS DESIGN
+# ========================================
+
+st.markdown(f"""
 <style>
-    .stExpander { margin-bottom: 0.5rem !important; }
-    .stExpander > div { padding: 0.5rem !important; }
+    /* ===== GLOBALE STYLES ===== */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    .stApp {{
+        font-family: 'Inter', sans-serif;
+        background: linear-gradient(180deg, {COLORS['background']} 0%, #FFFFFF 100%);
+    }}
+    
+    /* ===== HEADER BRANDING ===== */
+    .main-header {{
+        background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_light']} 100%);
+        padding: 1.5rem 2rem;
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 20px rgba(27, 94, 32, 0.15);
+        text-align: center;
+        color: white;
+    }}
+    
+    .main-header h1 {{
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }}
+    
+    .main-header .subtitle {{
+        font-size: 1rem;
+        opacity: 0.9;
+        margin-top: 0.3rem;
+    }}
+    
+    /* ===== METRIC CARDS ===== */
+    .metric-card {{
+        background: {COLORS['card_bg']};
+        border-radius: 16px;
+        padding: 1.2rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        border: 1px solid {COLORS['border']};
+        transition: all 0.3s ease;
+        text-align: center;
+    }}
+    
+    .metric-card:hover {{
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    }}
+    
+    .metric-card .icon {{
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }}
+    
+    .metric-card .value {{
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: {COLORS['text']};
+        line-height: 1.2;
+    }}
+    
+    .metric-card .label {{
+        font-size: 0.85rem;
+        color: {COLORS['text_light']};
+        margin-top: 0.3rem;
+    }}
+    
+    .metric-card .delta {{
+        font-size: 0.8rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 20px;
+        display: inline-block;
+        margin-top: 0.5rem;
+    }}
+    
+    .metric-card .delta.positive {{
+        background: #E8F5E9;
+        color: {COLORS['success']};
+    }}
+    
+    .metric-card .delta.negative {{
+        background: #FFEBEE;
+        color: {COLORS['error']};
+    }}
+    
+    /* Spezielle Karten-Farben */
+    .metric-card.total {{ border-top: 4px solid {COLORS['secondary']}; }}
+    .metric-card.padel {{ border-top: 4px solid {COLORS['accent']}; }}
+    .metric-card.tennis {{ border-top: 4px solid {COLORS['primary_light']}; }}
+    .metric-card.wellpass {{ border-top: 4px solid {COLORS['primary']}; }}
+    .metric-card.extras {{ border-top: 4px solid #9C27B0; }}
+    
+    /* ===== STATUS BADGES ===== */
+    .status-badge {{
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }}
+    
+    .status-badge.success {{
+        background: #E8F5E9;
+        color: {COLORS['success']};
+    }}
+    
+    .status-badge.error {{
+        background: #FFEBEE;
+        color: {COLORS['error']};
+    }}
+    
+    .status-badge.warning {{
+        background: #FFF3E0;
+        color: {COLORS['warning']};
+    }}
+    
+    /* ===== NAVIGATION ===== */
+    .nav-container {{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin: 1rem 0;
+    }}
+    
+    .date-display {{
+        background: {COLORS['card_bg']};
+        padding: 0.8rem 2rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        font-weight: 600;
+        font-size: 1.1rem;
+    }}
+    
+    /* ===== BUTTONS ===== */
+    .stButton > button {{
+        border-radius: 12px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+        border: none !important;
+    }}
+    
+    .stButton > button:hover {{
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    }}
+    
+    .stButton > button[kind="primary"] {{
+        background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_light']} 100%) !important;
+    }}
+    
+    /* ===== EXPANDER ===== */
+    .stExpander {{
+        background: {COLORS['card_bg']};
+        border-radius: 12px !important;
+        border: 1px solid {COLORS['border']} !important;
+        margin-bottom: 0.8rem !important;
+        overflow: hidden;
+    }}
+    
+    .stExpander > div {{
+        padding: 0.8rem !important;
+    }}
+    
+    /* ===== DATAFRAME ===== */
+    .stDataFrame {{
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }}
+    
+    /* ===== SIDEBAR ===== */
+    [data-testid="stSidebar"] {{
+        background: linear-gradient(180deg, {COLORS['primary']} 0%, #0D3311 100%);
+    }}
+    
+    [data-testid="stSidebar"] .stMarkdown {{
+        color: white;
+    }}
+    
+    [data-testid="stSidebar"] h1, 
+    [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3 {{
+        color: white !important;
+    }}
+    
+    /* ===== TABS ===== */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 8px;
+        background: {COLORS['card_bg']};
+        padding: 0.5rem;
+        border-radius: 12px;
+    }}
+    
+    .stTabs [data-baseweb="tab"] {{
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 500;
+    }}
+    
+    .stTabs [aria-selected="true"] {{
+        background: {COLORS['primary']} !important;
+        color: white !important;
+    }}
+    
+    /* ===== SUCCESS/ERROR BOXES ===== */
+    .success-box {{
+        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+        border-left: 4px solid {COLORS['success']};
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }}
+    
+    .error-box {{
+        background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+        border-left: 4px solid {COLORS['error']};
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+    }}
+    
+    /* ===== MOBILE RESPONSIVE ===== */
+    @media (max-width: 768px) {{
+        .main-header h1 {{
+            font-size: 1.8rem;
+        }}
+        
+        .metric-card {{
+            padding: 0.8rem;
+        }}
+        
+        .metric-card .value {{
+            font-size: 1.4rem;
+        }}
+        
+        .metric-card .icon {{
+            font-size: 1.5rem;
+        }}
+        
+        .date-display {{
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }}
+        
+        /* Stack columns on mobile */
+        [data-testid="column"] {{
+            width: 100% !important;
+            flex: 1 1 100% !important;
+        }}
+    }}
+    
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeIn {{
+        from {{ opacity: 0; transform: translateY(10px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    
+    .animate-in {{
+        animation: fadeIn 0.4s ease-out;
+    }}
+    
+    @keyframes pulse {{
+        0%, 100% {{ transform: scale(1); }}
+        50% {{ transform: scale(1.05); }}
+    }}
+    
+    .pulse {{
+        animation: pulse 2s infinite;
+    }}
+    
+    /* ===== KONFETTI ===== */
+    {CONFETTI_CSS}
+    
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar {{
+        width: 8px;
+        height: 8px;
+    }}
+    
+    ::-webkit-scrollbar-track {{
+        background: #f1f1f1;
+        border-radius: 4px;
+    }}
+    
+    ::-webkit-scrollbar-thumb {{
+        background: {COLORS['primary_light']};
+        border-radius: 4px;
+    }}
+    
+    ::-webkit-scrollbar-thumb:hover {{
+        background: {COLORS['primary']};
+    }}
 </style>
-""", unsafe_allow_html=True)
 
-# ✅ KEEP-ALIVE: Verhindert dass die App einschläft (alle 5 Minuten ein Ping)
-st.markdown("""
+<!-- Sound & Konfetti JavaScript -->
 <script>
-    // Keep-alive ping every 5 minutes to prevent Streamlit Cloud from sleeping
-    setInterval(function() {
-        // Trigger a tiny interaction to keep the connection alive
+    {WHATSAPP_SOUND_JS}
+    
+    function triggerConfetti() {{
+        const colors = ['{COLORS["primary"]}', '{COLORS["secondary"]}', '{COLORS["accent"]}', '{COLORS["success"]}', '#9C27B0'];
+        for (let i = 0; i < 50; i++) {{
+            setTimeout(() => {{
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                confetti.style.animationDuration = (2 + Math.random() * 2) + 's';
+                document.body.appendChild(confetti);
+                setTimeout(() => confetti.remove(), 4000);
+            }}, i * 30);
+        }}
+    }}
+    
+    // Keep-alive ping every 5 minutes
+    setInterval(function() {{
         const event = new Event('mousemove');
         document.dispatchEvent(event);
-        console.log('🎾 halle11 keep-alive ping');
-    }, 300000); // 5 minutes = 300000ms
+        console.log('🏔️ halle11 keep-alive ping');
+    }}, 300000);
 </script>
 """, unsafe_allow_html=True)
 
@@ -1200,14 +1685,21 @@ if not st.session_state.data_loaded:
             st.session_state.current_date = latest_date.strftime("%Y-%m-%d")
             st.session_state.data_loaded = True
 
-st.markdown("<h1 style='text-align: center;'>🏔️🎾 halle11</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #888; font-size: 14px;'>⚡ Famiglia Schneiderhan powered</p>", unsafe_allow_html=True)
+# ✅ NEUER STYLISCHER HEADER
+render_header()
 
 # ========================================
 # SIDEBAR
 # ========================================
 
-st.sidebar.title("🚀 Analyse")
+st.sidebar.markdown("""
+    <div style="text-align: center; padding: 1rem 0;">
+        <span style="font-size: 2rem;">🏔️🎾</span>
+        <h2 style="margin: 0.5rem 0 0 0;">halle11</h2>
+    </div>
+""", unsafe_allow_html=True)
+
+st.sidebar.markdown("---")
 
 p_file = st.sidebar.file_uploader("📁 Playtomic CSV", type=['csv'], key="playtomic")
 c_file = st.sidebar.file_uploader("📁 Checkins CSV", type=['csv'], key="checkins")
@@ -1408,28 +1900,45 @@ with tab1:
         st.info("📄 Lade CSVs hoch! 🎾")
         st.stop()
     
-    # Navigation
-    col_prev, col_date, col_next = st.columns([1, 3, 1])
+    # ✅ STYLISCHE NAVIGATION
+    curr_date = dates[st.session_state.day_idx]
+    weekday_de = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
+    month_de = ['', 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+    
+    date_formatted = f"{weekday_de[curr_date.weekday()]}, {curr_date.day}. {month_de[curr_date.month]} {curr_date.year}"
+    
+    st.markdown(f"""
+        <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 1rem 0;">
+            <div class="date-display" style="flex: 0 0 auto;">
+                📅 <strong>{date_formatted}</strong>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    col_prev, col_info, col_next = st.columns([1, 2, 1])
     
     with col_prev:
-        if st.button("◀", use_container_width=True, key="prev_btn"):
+        if st.button("◀ Zurück", use_container_width=True, key="prev_btn"):
             st.session_state.day_idx = min(st.session_state.day_idx + 1, len(dates) - 1)
             st.session_state.current_date = dates[st.session_state.day_idx].strftime("%Y-%m-%d")
             st.rerun()
     
-    with col_date:
-        curr_date = dates[st.session_state.day_idx]
-        st.info(f"📅 {curr_date.strftime('%d.%m.%Y')}")
+    with col_info:
+        st.markdown(f"""
+            <div style="text-align: center; color: {COLORS['text_light']}; font-size: 0.9rem;">
+                Tag {st.session_state.day_idx + 1} von {len(dates)}
+            </div>
+        """, unsafe_allow_html=True)
     
     with col_next:
-        if st.button("▶", use_container_width=True, key="next_btn"):
+        if st.button("Weiter ▶", use_container_width=True, key="next_btn"):
             st.session_state.day_idx = max(st.session_state.day_idx - 1, 0)
             st.session_state.current_date = dates[st.session_state.day_idx].strftime("%Y-%m-%d")
             st.rerun()
     
-    with st.expander("📆 Springe zu...", expanded=False):
+    with st.expander("📆 Springe zu Datum...", expanded=False):
         selected_date = st.selectbox("Datum:", options=dates, index=st.session_state.day_idx, format_func=lambda x: x.strftime("%d.%m.%Y"), key="date_jump")
-        if st.button("✅ Go", use_container_width=True):
+        if st.button("✅ Springen", use_container_width=True):
             st.session_state.day_idx = dates.index(selected_date)
             st.session_state.current_date = selected_date.strftime("%Y-%m-%d")
             st.rerun()
@@ -1465,29 +1974,64 @@ with tab1:
     delta_pct = ((gesamt_mit_wellpass / gesamt_last_week) - 1) * 100 if gesamt_last_week > 0 else 0
     
     
-    # ✅ KOMPAKTE UMSATZ-ZEILE
+    # ✅ NEUE STYLISCHE METRIKEN-KARTEN
     st.markdown("---")
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        delta_str = f"{delta_pct:+.0f}% vs. Vorwoche" if gesamt_last_week > 0 else None
-        st.metric("💰 Gesamt", f"€{gesamt_mit_wellpass:.2f}", delta_str)
-    with col2:
-        st.metric("🎾 Padel", f"€{revenue['padel']:.2f}")
-    with col3:
-        st.metric("🎾 Tennis", f"€{revenue['tennis']:.2f}")
-    with col4:
-        st.metric("🏓 Extras", f"€{revenue['baelle'] + revenue['schlaeger']:.2f}")
-    with col5:
-        st.metric("💳 Wellpass", f"€{wellpass_revenue:.2f}", f"{wellpass_unique_checkins} CI")
     
-    st.markdown("---")
+    # Berechne Prozent-Anteile
+    padel_pct = (revenue['padel'] / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+    tennis_pct = (revenue['tennis'] / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+    extras_total = revenue['baelle'] + revenue['schlaeger']
+    wellpass_pct = (wellpass_revenue / gesamt_mit_wellpass * 100) if gesamt_mit_wellpass > 0 else 0
+    
+    metrics_html = f"""
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin: 1rem 0;">
+        <div class="metric-card total animate-in">
+            <div class="icon">💰</div>
+            <div class="value">€{gesamt_mit_wellpass:.2f}</div>
+            <div class="label">Gesamt</div>
+            <div class="delta {'positive' if delta_pct >= 0 else 'negative'}">{delta_pct:+.0f}% vs. Vorwoche</div>
+        </div>
+        <div class="metric-card padel animate-in" style="animation-delay: 0.1s;">
+            <div class="icon">🟠</div>
+            <div class="value">€{revenue['padel']:.2f}</div>
+            <div class="label">Padel</div>
+            <div class="delta positive">{padel_pct:.0f}% Anteil</div>
+        </div>
+        <div class="metric-card tennis animate-in" style="animation-delay: 0.2s;">
+            <div class="icon">🟢</div>
+            <div class="value">€{revenue['tennis']:.2f}</div>
+            <div class="label">Tennis</div>
+            <div class="delta positive">{tennis_pct:.0f}% Anteil</div>
+        </div>
+        <div class="metric-card extras animate-in" style="animation-delay: 0.3s;">
+            <div class="icon">🏓</div>
+            <div class="value">€{extras_total:.2f}</div>
+            <div class="label">Extras</div>
+        </div>
+        <div class="metric-card wellpass animate-in" style="animation-delay: 0.4s;">
+            <div class="icon">💳</div>
+            <div class="value">€{wellpass_revenue:.2f}</div>
+            <div class="label">Wellpass</div>
+            <div class="delta positive">{wellpass_unique_checkins} Check-ins</div>
+        </div>
+    </div>
+    """
+    st.markdown(metrics_html, unsafe_allow_html=True)
     
     # ✅ STATISTIK-BADGES
     relevant_count = len(df[df['Relevant'] == 'Ja'])
     fehler_count = len(df[df['Fehler'] == 'Ja'])
     checkin_count = len(ci_df) if ci_df is not None else 0
     
-    st.markdown(f"**📊 Übersicht:** {len(df)} Buchungen · {relevant_count} Relevant · {'🔴' if fehler_count > 0 else '🟢'} {fehler_count} Fehler · {checkin_count} Check-ins")
+    stats_html = f"""
+    <div style="display: flex; flex-wrap: wrap; gap: 0.8rem; justify-content: center; margin: 1.5rem 0;">
+        <span class="status-badge" style="background: #E3F2FD; color: #1565C0;">📊 {len(df)} Buchungen</span>
+        <span class="status-badge" style="background: #FFF3E0; color: #EF6C00;">🎯 {relevant_count} Relevant</span>
+        <span class="status-badge {'error' if fehler_count > 0 else 'success'}">{'🔴' if fehler_count > 0 else '🟢'} {fehler_count} Fehler</span>
+        <span class="status-badge" style="background: #E8F5E9; color: #2E7D32;">✅ {checkin_count} Check-ins</span>
+    </div>
+    """
+    st.markdown(stats_html, unsafe_allow_html=True)
     
     st.markdown("---")
     
@@ -1712,7 +2256,8 @@ with tab1:
                         if st.button("🧪 Test", key=f"test_{key}", use_container_width=True):
                             send_wellpass_whatsapp_test(row)
     else:
-        st.success("✅ Keine offenen Fehler! Por cuatro! 🎉")
+        render_success_box("Keine offenen Fehler! Por cuatro! 🎉")
+        trigger_confetti()  # 🎊 Konfetti-Animation!
     
     # ✅ OFFENE FEHLER DER LETZTEN 5 TAGE
     st.markdown("---")
@@ -1910,5 +2455,22 @@ with tab2:
 # FOOTER
 # ========================================
 
-st.markdown("---")
-st.markdown("<p style='text-align: center; color: #888; font-size: 12px;'>🏔️🎾 halle11 v9.2 · ⚡ Famiglia Schneiderhan powered</p>", unsafe_allow_html=True)
+st.markdown(f"""
+<div style="
+    margin-top: 3rem; 
+    padding: 2rem; 
+    background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_light']} 100%);
+    border-radius: 16px;
+    text-align: center;
+    color: white;
+">
+    <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🏔️🎾</div>
+    <div style="font-weight: 600; font-size: 1.1rem;">halle11</div>
+    <div style="font-size: 0.85rem; opacity: 0.9; margin-top: 0.3rem;">
+        v10.0 Design Edition · ⚡ Famiglia Schneiderhan powered
+    </div>
+    <div style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.5rem;">
+        🎾 Padel & Tennis am Berg · Made with ❤️
+    </div>
+</div>
+""", unsafe_allow_html=True)
