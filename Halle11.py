@@ -1957,7 +1957,7 @@ if st.sidebar.button("📤 Upload", use_container_width=True) and cust_file:
 # TABS
 # ========================================
 
-tab1, tab2, tab3 = st.tabs(["📅 Tag", "📊 Monat", "👥 Spieler"])
+tab1, tab2, tab3, tab4 = st.tabs(["📅 Tag", "📊 Monat", "👥 Spieler", "🔮 Prognose"])
 
 with tab1:
     dates = get_dates()
@@ -2805,6 +2805,417 @@ with tab3:
 
 
 # ========================================
+# TAB 4: PROGNOSEN & KALENDER
+# ========================================
+
+with tab4:
+    st.markdown("### 🔮 Prognosen & Kalender")
+    
+    # Lade Daten
+    all_buchungen = loadsheet("buchungen")
+    all_checkins = loadsheet("checkins")
+    
+    if all_buchungen.empty or 'analysis_date' not in all_buchungen.columns:
+        st.warning("⚠️ Keine Buchungsdaten vorhanden!")
+    else:
+        all_buchungen['date_obj'] = pd.to_datetime(all_buchungen['analysis_date'], errors='coerce').dt.date
+        all_buchungen = all_buchungen.dropna(subset=['date_obj'])
+        
+        # Berechne Betrag numerisch
+        all_buchungen['Betrag_num'] = pd.to_numeric(all_buchungen['Betrag'], errors='coerce').fillna(0)
+        
+        # Wochentag hinzufügen (0=Montag, 6=Sonntag)
+        all_buchungen['Wochentag'] = pd.to_datetime(all_buchungen['analysis_date']).dt.dayofweek
+        
+        # Deutsche Wochentag-Namen
+        wochentag_namen = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
+        all_buchungen['Wochentag_Name'] = all_buchungen['Wochentag'].apply(lambda x: wochentag_namen[x])
+        
+        # Uhrzeit extrahieren (falls vorhanden)
+        if 'Service_Zeit' in all_buchungen.columns:
+            all_buchungen['Stunde'] = all_buchungen['Service_Zeit'].apply(
+                lambda x: int(str(x).split(':')[0]) if pd.notna(x) and ':' in str(x) else None
+            )
+        
+        st.markdown("---")
+        
+        # ========================================
+        # 📅 KALENDER-VIEW
+        # ========================================
+        
+        st.markdown("#### 📅 Kalender-Übersicht")
+        
+        # Monat auswählen
+        today = date.today()
+        col_year, col_month = st.columns(2)
+        with col_year:
+            cal_year = st.selectbox("Jahr", options=list(range(2024, today.year + 1)), index=list(range(2024, today.year + 1)).index(today.year), key="cal_year")
+        with col_month:
+            month_names_cal = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+            cal_month = st.selectbox("Monat", options=list(range(1, 13)), index=today.month - 1, format_func=lambda x: month_names_cal[x-1], key="cal_month")
+        
+        # Kalender-Daten berechnen
+        first_day = date(cal_year, cal_month, 1)
+        last_day = date(cal_year, cal_month, monthrange(cal_year, cal_month)[1])
+        
+        # Tages-Statistiken für den Monat
+        month_data = all_buchungen[(all_buchungen['date_obj'] >= first_day) & (all_buchungen['date_obj'] <= last_day)]
+        
+        daily_stats = month_data.groupby('date_obj').agg({
+            'Betrag_num': 'sum',
+            'Name': 'count',
+            'Fehler': lambda x: (x == 'Ja').sum()
+        }).reset_index()
+        daily_stats.columns = ['Datum', 'Umsatz', 'Buchungen', 'Fehler']
+        
+        # Wellpass Check-ins pro Tag
+        if not all_checkins.empty and 'analysis_date' in all_checkins.columns:
+            all_checkins['date_obj'] = pd.to_datetime(all_checkins['analysis_date'], errors='coerce').dt.date
+            month_checkins = all_checkins[(all_checkins['date_obj'] >= first_day) & (all_checkins['date_obj'] <= last_day)]
+            checkin_counts = month_checkins.groupby('date_obj')['Name_norm'].nunique().reset_index()
+            checkin_counts.columns = ['Datum', 'Checkins']
+            daily_stats = daily_stats.merge(checkin_counts, on='Datum', how='left')
+            daily_stats['Checkins'] = daily_stats['Checkins'].fillna(0).astype(int)
+        else:
+            daily_stats['Checkins'] = 0
+        
+        # Wellpass-Wert hinzufügen
+        daily_stats['Wellpass_Umsatz'] = daily_stats['Checkins'] * WELLPASS_WERT
+        daily_stats['Gesamt'] = daily_stats['Umsatz'] + daily_stats['Wellpass_Umsatz']
+        
+        # Kalender als Grid darstellen
+        # Erster Tag des Monats - welcher Wochentag?
+        first_weekday = first_day.weekday()  # 0=Montag
+        
+        # Kalender-Grid erstellen
+        st.markdown(f"**{month_names_cal[cal_month-1]} {cal_year}**")
+        
+        # Wochentag-Header
+        header_cols = st.columns(7)
+        for i, day_name in enumerate(['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']):
+            header_cols[i].markdown(f"<div style='text-align: center; font-weight: bold; color: var(--text-secondary);'>{day_name}</div>", unsafe_allow_html=True)
+        
+        # Kalender-Tage
+        current_day = 1
+        max_day = last_day.day
+        
+        # Berechne Anzahl Wochen
+        total_cells = first_weekday + max_day
+        num_weeks = (total_cells + 6) // 7
+        
+        for week in range(num_weeks):
+            cols = st.columns(7)
+            for weekday in range(7):
+                cell_num = week * 7 + weekday
+                day_num = cell_num - first_weekday + 1
+                
+                if day_num < 1 or day_num > max_day:
+                    cols[weekday].markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
+                else:
+                    current_date = date(cal_year, cal_month, day_num)
+                    day_data = daily_stats[daily_stats['Datum'] == current_date]
+                    
+                    if not day_data.empty:
+                        umsatz = day_data.iloc[0]['Gesamt']
+                        buchungen = day_data.iloc[0]['Buchungen']
+                        fehler = day_data.iloc[0]['Fehler']
+                        
+                        # Farbe basierend auf Umsatz
+                        if umsatz >= 500:
+                            bg_color = "rgba(67, 160, 71, 0.3)"  # Grün
+                            border_color = COLORS['success']
+                        elif umsatz >= 200:
+                            bg_color = "rgba(255, 179, 0, 0.3)"  # Gelb
+                            border_color = COLORS['secondary']
+                        elif umsatz > 0:
+                            bg_color = "rgba(255, 87, 34, 0.2)"  # Orange
+                            border_color = COLORS['accent']
+                        else:
+                            bg_color = "var(--card-bg)"
+                            border_color = "var(--card-border)"
+                        
+                        fehler_dot = "🔴" if fehler > 0 else ""
+                        
+                        cols[weekday].markdown(f"""
+                            <div style="
+                                background: {bg_color}; 
+                                border: 2px solid {border_color}; 
+                                border-radius: 8px; 
+                                padding: 0.3rem; 
+                                text-align: center;
+                                height: 80px;
+                            ">
+                                <div style="font-weight: bold; font-size: 1.1rem;">{day_num}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-primary);">€{umsatz:.0f}</div>
+                                <div style="font-size: 0.65rem; color: var(--text-secondary);">{buchungen} 📋 {fehler_dot}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        # Tag ohne Daten (Zukunft oder keine Buchungen)
+                        is_future = current_date > today
+                        cols[weekday].markdown(f"""
+                            <div style="
+                                background: var(--card-bg); 
+                                border: 1px dashed var(--card-border); 
+                                border-radius: 8px; 
+                                padding: 0.3rem; 
+                                text-align: center;
+                                height: 80px;
+                                opacity: {'0.5' if is_future else '1'};
+                            ">
+                                <div style="font-weight: bold; font-size: 1.1rem; color: var(--text-secondary);">{day_num}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary);">{'—' if is_future else '€0'}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+        
+        # Legende
+        st.markdown("""
+            <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap;">
+                <span style="font-size: 0.8rem;">🟢 ≥€500</span>
+                <span style="font-size: 0.8rem;">🟡 €200-499</span>
+                <span style="font-size: 0.8rem;">🟠 €1-199</span>
+                <span style="font-size: 0.8rem;">⬜ €0 / keine Daten</span>
+                <span style="font-size: 0.8rem;">🔴 = offene Fehler</span>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # ========================================
+        # 📈 WOCHENTAG-PROGNOSE
+        # ========================================
+        
+        st.markdown("#### 📈 Wochentag-Prognose")
+        st.caption("Basierend auf historischen Durchschnittswerten")
+        
+        # Durchschnitt pro Wochentag berechnen (letzte 8 Wochen)
+        eight_weeks_ago = today - timedelta(weeks=8)
+        recent_data = all_buchungen[all_buchungen['date_obj'] >= eight_weeks_ago]
+        
+        # Tages-Umsätze berechnen
+        daily_revenue = recent_data.groupby(['date_obj', 'Wochentag', 'Wochentag_Name']).agg({
+            'Betrag_num': 'sum',
+            'Name': 'count'
+        }).reset_index()
+        daily_revenue.columns = ['Datum', 'Wochentag', 'Wochentag_Name', 'Umsatz', 'Buchungen']
+        
+        # Wellpass dazu
+        if not all_checkins.empty:
+            recent_checkins = all_checkins[all_checkins['date_obj'] >= eight_weeks_ago]
+            checkin_daily = recent_checkins.groupby('date_obj')['Name_norm'].nunique().reset_index()
+            checkin_daily.columns = ['Datum', 'Checkins']
+            daily_revenue = daily_revenue.merge(checkin_daily, on='Datum', how='left')
+            daily_revenue['Checkins'] = daily_revenue['Checkins'].fillna(0)
+            daily_revenue['Wellpass'] = daily_revenue['Checkins'] * WELLPASS_WERT
+            daily_revenue['Gesamt'] = daily_revenue['Umsatz'] + daily_revenue['Wellpass']
+        else:
+            daily_revenue['Gesamt'] = daily_revenue['Umsatz']
+        
+        # Durchschnitt pro Wochentag
+        weekday_avg = daily_revenue.groupby(['Wochentag', 'Wochentag_Name']).agg({
+            'Gesamt': 'mean',
+            'Buchungen': 'mean',
+            'Datum': 'count'  # Anzahl Datenpunkte
+        }).reset_index()
+        weekday_avg.columns = ['Wochentag', 'Wochentag_Name', 'Ø_Umsatz', 'Ø_Buchungen', 'Datenpunkte']
+        weekday_avg = weekday_avg.sort_values('Wochentag')
+        
+        # Balkendiagramm
+        fig_weekday = go.Figure()
+        
+        fig_weekday.add_trace(go.Bar(
+            x=weekday_avg['Wochentag_Name'],
+            y=weekday_avg['Ø_Umsatz'],
+            marker_color=[COLORS['primary'] if i < 5 else COLORS['secondary'] for i in range(7)],
+            text=[f"€{x:.0f}" for x in weekday_avg['Ø_Umsatz']],
+            textposition='outside'
+        ))
+        
+        fig_weekday.update_layout(
+            title="Durchschnittlicher Umsatz pro Wochentag",
+            xaxis_title="",
+            yaxis_title="Ø Umsatz (€)",
+            height=350,
+            showlegend=False
+        )
+        
+        st.plotly_chart(fig_weekday, use_container_width=True)
+        
+        # Prognose für aktuelle/nächste Woche
+        st.markdown("##### 🎯 Prognose für diese Woche")
+        
+        # Berechne Start der aktuellen Woche (Montag)
+        days_since_monday = today.weekday()
+        monday = today - timedelta(days=days_since_monday)
+        
+        prognose_data = []
+        for i in range(7):
+            day = monday + timedelta(days=i)
+            day_name = wochentag_namen[i]
+            avg_row = weekday_avg[weekday_avg['Wochentag'] == i]
+            
+            if not avg_row.empty:
+                expected = avg_row.iloc[0]['Ø_Umsatz']
+                expected_bookings = avg_row.iloc[0]['Ø_Buchungen']
+            else:
+                expected = 0
+                expected_bookings = 0
+            
+            # Actual wenn Tag in der Vergangenheit
+            actual = None
+            if day <= today:
+                day_actual = daily_revenue[daily_revenue['Datum'] == day]
+                if not day_actual.empty:
+                    actual = day_actual.iloc[0]['Gesamt']
+            
+            prognose_data.append({
+                'Tag': day_name,
+                'Datum': day.strftime('%d.%m.'),
+                'Erwartet': f"€{expected:.0f}",
+                'Tatsächlich': f"€{actual:.0f}" if actual is not None else "—",
+                'Differenz': f"{((actual/expected)-1)*100:+.0f}%" if actual is not None and expected > 0 else "—",
+                'Status': '✅' if day <= today else '🔮'
+            })
+        
+        prognose_df = pd.DataFrame(prognose_data)
+        st.dataframe(prognose_df, use_container_width=True, hide_index=True)
+        
+        # Wochen-Summe Prognose
+        weekly_expected = weekday_avg['Ø_Umsatz'].sum()
+        st.markdown(f"""
+            <div class="metric-card total" style="max-width: 300px; margin: 1rem auto;">
+                <div class="icon">📊</div>
+                <div class="value">€{weekly_expected:.0f}</div>
+                <div class="label">Erwarteter Wochen-Umsatz</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # ========================================
+        # ⏰ PEAK-ZEITEN HEATMAP
+        # ========================================
+        
+        st.markdown("#### ⏰ Peak-Zeiten (Wann wird gespielt?)")
+        
+        if 'Stunde' in all_buchungen.columns:
+            # Filtere auf gültige Stunden
+            heatmap_data = all_buchungen[all_buchungen['Stunde'].notna()].copy()
+            heatmap_data['Stunde'] = heatmap_data['Stunde'].astype(int)
+            
+            if not heatmap_data.empty:
+                # Pivot-Tabelle: Wochentag × Stunde
+                heatmap_pivot = heatmap_data.groupby(['Wochentag', 'Stunde']).size().reset_index(name='Buchungen')
+                heatmap_matrix = heatmap_pivot.pivot(index='Stunde', columns='Wochentag', values='Buchungen').fillna(0)
+                
+                # Sicherstellen dass alle Wochentage vorhanden sind
+                for i in range(7):
+                    if i not in heatmap_matrix.columns:
+                        heatmap_matrix[i] = 0
+                heatmap_matrix = heatmap_matrix.reindex(columns=range(7))
+                heatmap_matrix.columns = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+                
+                # Heatmap erstellen
+                fig_heatmap = go.Figure(data=go.Heatmap(
+                    z=heatmap_matrix.values,
+                    x=heatmap_matrix.columns,
+                    y=[f"{h}:00" for h in heatmap_matrix.index],
+                    colorscale=[
+                        [0, '#F5F5F5'],
+                        [0.25, '#C8E6C9'],
+                        [0.5, '#81C784'],
+                        [0.75, '#4CAF50'],
+                        [1, '#1B5E20']
+                    ],
+                    hovertemplate='%{x} %{y}: %{z} Buchungen<extra></extra>'
+                ))
+                
+                fig_heatmap.update_layout(
+                    title="Buchungen nach Uhrzeit und Wochentag",
+                    xaxis_title="",
+                    yaxis_title="Uhrzeit",
+                    height=400,
+                    yaxis=dict(autorange='reversed')
+                )
+                
+                st.plotly_chart(fig_heatmap, use_container_width=True)
+                
+                # Top 3 Peak-Zeiten
+                top_peaks = heatmap_pivot.nlargest(3, 'Buchungen')
+                peak_text = []
+                for _, row in top_peaks.iterrows():
+                    day_name = wochentag_namen[int(row['Wochentag'])]
+                    peak_text.append(f"**{day_name} {int(row['Stunde'])}:00** ({int(row['Buchungen'])} Buchungen)")
+                
+                st.markdown(f"🔥 **Top Peak-Zeiten:** {' · '.join(peak_text)}")
+            else:
+                st.info("Keine Uhrzeit-Daten verfügbar")
+        else:
+            st.info("Keine Uhrzeit-Daten in den Buchungen")
+        
+        st.markdown("---")
+        
+        # ========================================
+        # 🔄 WIEDERKEHRRATE
+        # ========================================
+        
+        st.markdown("#### 🔄 Wiederkehr-Analyse")
+        
+        # Spieler die letzte Woche gespielt haben
+        last_week_start = today - timedelta(days=14)
+        last_week_end = today - timedelta(days=7)
+        this_week_start = today - timedelta(days=7)
+        
+        last_week_players = set(all_buchungen[
+            (all_buchungen['date_obj'] >= last_week_start) & 
+            (all_buchungen['date_obj'] < last_week_end)
+        ]['Name_norm'].unique())
+        
+        this_week_players = set(all_buchungen[
+            (all_buchungen['date_obj'] >= this_week_start)
+        ]['Name_norm'].unique())
+        
+        if len(last_week_players) > 0:
+            returning = last_week_players.intersection(this_week_players)
+            return_rate = len(returning) / len(last_week_players) * 100
+            
+            col_r1, col_r2, col_r3 = st.columns(3)
+            with col_r1:
+                st.markdown(f"""
+                    <div class="metric-card animate-in">
+                        <div class="icon">📅</div>
+                        <div class="value">{len(last_week_players)}</div>
+                        <div class="label">Spieler letzte Woche</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_r2:
+                st.markdown(f"""
+                    <div class="metric-card animate-in">
+                        <div class="icon">🔄</div>
+                        <div class="value">{len(returning)}</div>
+                        <div class="label">Davon wiedergekommen</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_r3:
+                st.markdown(f"""
+                    <div class="metric-card animate-in" style="border-top: 4px solid {'#4CAF50' if return_rate >= 30 else '#FF5722'};">
+                        <div class="icon">📈</div>
+                        <div class="value">{return_rate:.0f}%</div>
+                        <div class="label">Wiederkehrrate</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            if return_rate >= 40:
+                render_success_box(f"Sehr gute Wiederkehrrate! {return_rate:.0f}% der Spieler kommen wieder 🎉")
+            elif return_rate >= 25:
+                st.info(f"📊 Solide Wiederkehrrate von {return_rate:.0f}%")
+            else:
+                st.warning(f"⚠️ Niedrige Wiederkehrrate ({return_rate:.0f}%) - mehr Kundenbindung nötig?")
+        else:
+            st.info("Noch nicht genug Daten für Wiederkehr-Analyse (mind. 2 Wochen)")
+
+
+# ========================================
 # FOOTER
 # ========================================
 
@@ -2820,7 +3231,7 @@ st.markdown(f"""
     <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🏔️🎾</div>
     <div style="font-weight: 600; font-size: 1.1rem;">halle11</div>
     <div style="font-size: 0.85rem; opacity: 0.9; margin-top: 0.3rem;">
-        v11.0 Analytics Edition · ⚡ Famiglia Schneiderhan powered
+        v12.0 Prognose Edition · ⚡ Famiglia Schneiderhan powered
     </div>
     <div style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.5rem;">
         🎾 Padel & Tennis am Berg · Made with ❤️
