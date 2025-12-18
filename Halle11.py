@@ -1788,12 +1788,24 @@ if search_query and len(search_query) >= 2:
         matches = all_buchungen[all_buchungen['Name'].str.lower().str.contains(search_lower, na=False)]
         
         if not matches.empty:
-            # Gruppiere nach Spieler
-            unique_players = matches.groupby('Name').agg({
-                'analysis_date': ['count', 'max'],
-                'Betrag': lambda x: pd.to_numeric(x, errors='coerce').sum()
-            }).reset_index()
-            unique_players.columns = ['Name', 'Buchungen', 'Letzte', 'Umsatz']
+            # ✅ FIX: Einfachere Aggregation ohne Categorical-Problem
+            # Konvertiere analysis_date zu string falls nötig
+            matches = matches.copy()
+            matches['analysis_date_str'] = matches['analysis_date'].astype(str)
+            matches['Betrag_num'] = pd.to_numeric(matches['Betrag'], errors='coerce').fillna(0)
+            
+            # Gruppiere manuell
+            player_stats = []
+            for name in matches['Name'].unique():
+                player_data = matches[matches['Name'] == name]
+                player_stats.append({
+                    'Name': name,
+                    'Buchungen': len(player_data),
+                    'Letzte': player_data['analysis_date_str'].max(),
+                    'Umsatz': player_data['Betrag_num'].sum()
+                })
+            
+            unique_players = pd.DataFrame(player_stats)
             unique_players = unique_players.sort_values('Buchungen', ascending=False).head(5)
             
             st.sidebar.markdown("##### 🔎 Ergebnisse")
@@ -1801,7 +1813,7 @@ if search_query and len(search_query) >= 2:
                 st.sidebar.markdown(f"""
                     <div style="background: rgba(255,255,255,0.1); padding: 0.5rem; border-radius: 8px; margin-bottom: 0.5rem;">
                         <strong>{player['Name']}</strong><br>
-                        <span style="font-size: 0.8rem;">📋 {player['Buchungen']}x · 📅 {player['Letzte']}</span>
+                        <span style="font-size: 0.8rem;">📋 {int(player['Buchungen'])}x · 📅 {player['Letzte']}</span>
                     </div>
                 """, unsafe_allow_html=True)
         else:
@@ -3371,7 +3383,7 @@ st.markdown(f"""
     <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🏔️🎾</div>
     <div style="font-weight: 600; font-size: 1.1rem;">halle11</div>
     <div style="font-size: 0.85rem; opacity: 0.9; margin-top: 0.3rem;">
-        v13.0 Ultimate Edition · ⚡ Famiglia Schneiderhan powered
+        v13.1 Ultimate Edition · ⚡ Famiglia Schneiderhan powered
     </div>
     <div style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.5rem;">
         🎾 Padel & Tennis am Berg · Made with ❤️
