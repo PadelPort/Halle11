@@ -365,8 +365,9 @@ def trigger_confetti():
 
 
 def play_sound():
-    """Spielt WhatsApp Sound via JavaScript."""
-    st.markdown("<script>playWhatsAppSound();</script>", unsafe_allow_html=True)
+    """Spielt WhatsApp Sound via JavaScript (nur wenn aktiviert)."""
+    if st.session_state.get('sound_enabled', True):
+        st.markdown("<script>playWhatsAppSound();</script>", unsafe_allow_html=True)
 
 
 def render_success_box(message: str):
@@ -1738,6 +1739,12 @@ if 'corrections_cache' not in st.session_state:
     st.session_state.corrections_cache = None
 if 'corrections_cache_time' not in st.session_state:
     st.session_state.corrections_cache_time = 0
+# ✅ NEU: Sound-Einstellung
+if 'sound_enabled' not in st.session_state:
+    st.session_state.sound_enabled = True
+# ✅ NEU: Monatsziel
+if 'monthly_goal' not in st.session_state:
+    st.session_state.monthly_goal = 8000  # Default €8000
 
 if not st.session_state.data_loaded:
     dates = get_dates()
@@ -1767,6 +1774,65 @@ st.sidebar.markdown("""
 
 st.sidebar.markdown("---")
 
+# ========================================
+# 🔍 GLOBALE SUCHE
+# ========================================
+
+search_query = st.sidebar.text_input("🔍 Spieler suchen", placeholder="Name eingeben...", key="global_search")
+
+if search_query and len(search_query) >= 2:
+    all_buchungen = loadsheet("buchungen")
+    if not all_buchungen.empty and 'Name' in all_buchungen.columns:
+        # Suche in Namen (case-insensitive)
+        search_lower = search_query.lower()
+        matches = all_buchungen[all_buchungen['Name'].str.lower().str.contains(search_lower, na=False)]
+        
+        if not matches.empty:
+            # Gruppiere nach Spieler
+            unique_players = matches.groupby('Name').agg({
+                'analysis_date': ['count', 'max'],
+                'Betrag': lambda x: pd.to_numeric(x, errors='coerce').sum()
+            }).reset_index()
+            unique_players.columns = ['Name', 'Buchungen', 'Letzte', 'Umsatz']
+            unique_players = unique_players.sort_values('Buchungen', ascending=False).head(5)
+            
+            st.sidebar.markdown("##### 🔎 Ergebnisse")
+            for _, player in unique_players.iterrows():
+                st.sidebar.markdown(f"""
+                    <div style="background: rgba(255,255,255,0.1); padding: 0.5rem; border-radius: 8px; margin-bottom: 0.5rem;">
+                        <strong>{player['Name']}</strong><br>
+                        <span style="font-size: 0.8rem;">📋 {player['Buchungen']}x · 📅 {player['Letzte']}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.sidebar.info("Keine Treffer")
+
+st.sidebar.markdown("---")
+
+# ========================================
+# ⚙️ EINSTELLUNGEN
+# ========================================
+
+with st.sidebar.expander("⚙️ Einstellungen", expanded=False):
+    # Sound Toggle
+    st.session_state.sound_enabled = st.checkbox(
+        "🔊 Sound bei WhatsApp", 
+        value=st.session_state.sound_enabled,
+        help="Spielt einen Sound wenn WhatsApp gesendet wird"
+    )
+    
+    # Monatsziel
+    st.session_state.monthly_goal = st.number_input(
+        "🎯 Monatsziel (€)",
+        min_value=1000,
+        max_value=50000,
+        value=st.session_state.monthly_goal,
+        step=500,
+        help="Dein Umsatz-Ziel für den Monat"
+    )
+
+st.sidebar.markdown("---")
+
 p_file = st.sidebar.file_uploader("📁 Playtomic CSV", type=['csv'], key="playtomic")
 c_file = st.sidebar.file_uploader("📁 Checkins CSV", type=['csv'], key="checkins")
 
@@ -1789,7 +1855,8 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
         
         rename_map = {
             'User name': 'Name', 'Total': 'Betrag_raw', 'Service date': 'Servicedatum_raw',
-            'Product SKU': 'Product_SKU', 'Payment id': 'Payment id', 'Club payment id': 'Club payment id', 'Sport': 'Sport'
+            'Product SKU': 'Product_SKU', 'Payment id': 'Payment id', 'Club payment id': 'Club payment id', 'Sport': 'Sport',
+            'Payment method': 'Payment_method'  # ✅ NEU: Für Wallet-Erkennung
         }
         if 'Service time' in playtomic_filtered.columns:
             rename_map['Service time'] = 'Service_Zeit'
@@ -1813,10 +1880,20 @@ if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file an
         if 'Payment id' in playtomic_filtered.columns:
             playtomic_filtered = playtomic_filtered.drop_duplicates(subset=['Payment id'])
 
-        # ✅ FIX: Relevanz für BEIDE Sportarten (Padel UND Tennis), unter 6€
+        # ✅ FIX: Club Wallet Zahlungen erkennen
+        # Wenn Payment method = "Club wallet" → Spieler hat über Wallet bezahlt, NICHT Wellpass-relevant!
+        is_wallet_payment = False
+        if 'Payment_method' in playtomic_filtered.columns:
+            is_wallet_payment = playtomic_filtered['Payment_method'].str.lower().str.contains('wallet', na=False)
+        
+        # ✅ Relevanz für BEIDE Sportarten (Padel UND Tennis), unter 6€
+        # ABER: Wallet-Zahlungen sind NICHT relevant (die haben ja bezahlt!)
         playtomic_filtered['Relevant'] = (
-            ((playtomic_filtered['Betrag_num'] < 6) & (playtomic_filtered['Betrag_num'] > 0)) | 
-            (playtomic_filtered['Betrag_num'] == 0)
+            (
+                ((playtomic_filtered['Betrag_num'] < 6) & (playtomic_filtered['Betrag_num'] > 0)) | 
+                (playtomic_filtered['Betrag_num'] == 0)
+            ) & 
+            (~is_wallet_payment)  # ✅ Wallet-Zahlungen ausschließen
         )
         
         cdf = parse_checkins_csv(c_file)
@@ -2477,6 +2554,69 @@ with tab2:
     revenue_month = get_revenue_from_raw(start_date=first_day, end_date=last_day)
     wellpass_revenue_monat = wellpass_checkins_monat * WELLPASS_WERT
     gesamt_umsatz = revenue_month['gesamt'] + wellpass_revenue_monat
+    
+    # ========================================
+    # 🎯 UMSATZ-ZIEL FORTSCHRITT
+    # ========================================
+    
+    monthly_goal = st.session_state.get('monthly_goal', 8000)
+    progress_pct = min((gesamt_umsatz / monthly_goal) * 100, 100) if monthly_goal > 0 else 0
+    remaining = max(monthly_goal - gesamt_umsatz, 0)
+    
+    # Berechne Tage im Monat und vergangene Tage
+    days_in_month = last_day.day
+    if selected_year == today.year and selected_month == today.month:
+        days_passed = today.day
+    elif date(selected_year, selected_month, 1) < today:
+        days_passed = days_in_month  # Monat ist vorbei
+    else:
+        days_passed = 0  # Zukunft
+    
+    expected_pct = (days_passed / days_in_month * 100) if days_in_month > 0 else 0
+    on_track = progress_pct >= expected_pct
+    
+    # Prognose für Monatsende
+    if days_passed > 0:
+        daily_avg = gesamt_umsatz / days_passed
+        projected_total = daily_avg * days_in_month
+    else:
+        projected_total = 0
+    
+    # Progress Bar Farbe
+    if progress_pct >= 100:
+        bar_color = COLORS['success']
+        status_emoji = "🎉"
+        status_text = "ZIEL ERREICHT!"
+    elif on_track:
+        bar_color = COLORS['primary_light']
+        status_emoji = "✅"
+        status_text = "Im Plan"
+    else:
+        bar_color = COLORS['warning']
+        status_emoji = "⚠️"
+        status_text = f"Noch €{remaining:.0f} nötig"
+    
+    st.markdown(f"""
+        <div class="metric-card total" style="margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 1.2rem; font-weight: bold;">🎯 Monatsziel</span>
+                <span style="font-size: 1.5rem; font-weight: bold;">€{gesamt_umsatz:.0f} / €{monthly_goal:.0f}</span>
+            </div>
+            <div style="background: var(--card-border); border-radius: 10px; height: 20px; overflow: hidden;">
+                <div style="
+                    width: {progress_pct}%; 
+                    height: 100%; 
+                    background: linear-gradient(90deg, {bar_color}, {COLORS['secondary']});
+                    border-radius: 10px;
+                    transition: width 0.5s ease;
+                "></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.85rem;">
+                <span>{status_emoji} {status_text}</span>
+                <span>📈 Prognose: €{projected_total:.0f}</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
     
     st.markdown("---")
     
@@ -3231,7 +3371,7 @@ st.markdown(f"""
     <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🏔️🎾</div>
     <div style="font-weight: 600; font-size: 1.1rem;">halle11</div>
     <div style="font-size: 0.85rem; opacity: 0.9; margin-top: 0.3rem;">
-        v12.0 Prognose Edition · ⚡ Famiglia Schneiderhan powered
+        v13.0 Ultimate Edition · ⚡ Famiglia Schneiderhan powered
     </div>
     <div style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.5rem;">
         🎾 Padel & Tennis am Berg · Made with ❤️
