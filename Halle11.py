@@ -379,6 +379,68 @@ def render_error_box(message: str):
     """Rendert eine Fehler-Box."""
     st.markdown(f'<div class="error-box">❌ {message}</div>', unsafe_allow_html=True)
 
+
+def render_info_box(message: str):
+    """Rendert eine Info-Box."""
+    st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, {COLORS['secondary']}20, {COLORS['primary']}10);
+            border-left: 4px solid {COLORS['secondary']};
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+        ">
+            💡 {message}
+        </div>
+    """, unsafe_allow_html=True)
+
+
+# ========================================
+# 💾 PERSISTENTE EINSTELLUNGEN
+# ========================================
+
+def load_settings():
+    """Lade Einstellungen aus Google Sheets."""
+    try:
+        settings = loadsheet("settings", ['key', 'value'])
+        if settings.empty:
+            return {}
+        return dict(zip(settings['key'], settings['value']))
+    except:
+        return {}
+
+def save_setting(key, value):
+    """Speichere eine Einstellung in Google Sheets."""
+    try:
+        settings = loadsheet("settings", ['key', 'value'])
+        
+        if settings.empty:
+            settings = pd.DataFrame(columns=['key', 'value'])
+        
+        if key in settings['key'].values:
+            settings.loc[settings['key'] == key, 'value'] = str(value)
+        else:
+            new_row = pd.DataFrame([{'key': key, 'value': str(value)}])
+            settings = pd.concat([settings, new_row], ignore_index=True)
+        
+        savesheet(settings, "settings")
+        return True
+    except Exception as e:
+        return False
+
+def get_monthly_goal():
+    """Hole das Monatsziel aus den Einstellungen."""
+    settings = load_settings()
+    try:
+        return float(settings.get('monthly_goal', 8000))
+    except:
+        return 8000
+
+def set_monthly_goal(value):
+    """Setze das Monatsziel."""
+    save_setting('monthly_goal', value)
+
+
 def send_wellpass_whatsapp_to_player(fehler_row: pd.Series) -> bool:
     """Sendet WhatsApp-Template-Nachricht an den Spieler."""
     try:
@@ -606,64 +668,74 @@ def optimize_dataframe(df):
 
 
 # ========================================
-# AUTHENTICATION MIT COOKIES
+# ✅ VERBESSERTES AUTHENTICATION MIT URL-TOKEN
 # ========================================
 
-def get_cookie_hash():
-    if 'browser_id' not in st.session_state:
-        import platform
-        browser_fingerprint = f"{platform.system()}_{platform.node()}_{time.time()}"
-        st.session_state.browser_id = hashlib.md5(browser_fingerprint.encode()).hexdigest()
-    return st.session_state.browser_id
+def generate_auth_token():
+    """Generiere einen sicheren Auth-Token"""
+    import secrets
+    return secrets.token_urlsafe(32)
 
-def save_auth_cookie():
-    cookie_hash = get_cookie_hash()
+def save_auth_token(token):
+    """Speichere Auth-Token im Google Sheet"""
     try:
-        auth_data = loadsheet("auth_cookies", ['cookie_hash', 'timestamp', 'expires'])
+        auth_data = loadsheet("auth_tokens", ['token', 'created', 'expires'])
+        
         now = datetime.now()
+        expires = now + timedelta(days=30)
+        
+        new_token = pd.DataFrame([{
+            'token': token,
+            'created': now.isoformat(),
+            'expires': expires.isoformat()
+        }])
+        
         if not auth_data.empty:
             auth_data['expires'] = pd.to_datetime(auth_data['expires'], errors='coerce')
             auth_data = auth_data[auth_data['expires'] > now]
         
-        expires = now + timedelta(days=30)
-        new_cookie = pd.DataFrame([{'cookie_hash': cookie_hash, 'timestamp': now.isoformat(), 'expires': expires.isoformat()}])
-        
-        auth_data = pd.concat([auth_data, new_cookie], ignore_index=True)
-        auth_data = auth_data.drop_duplicates(subset=['cookie_hash'], keep='last')
-        savesheet(auth_data, "auth_cookies")
-        
-        st.session_state['auth_token'] = cookie_hash
-        st.session_state['auth_timestamp'] = time.time()
+        auth_data = pd.concat([auth_data, new_token], ignore_index=True)
+        savesheet(auth_data, "auth_tokens")
         return True
-    except:
-        st.session_state['auth_token'] = cookie_hash
-        st.session_state['auth_timestamp'] = time.time()
+    except Exception as e:
         return False
 
-def check_auth_cookie():
-    cookie_hash = get_cookie_hash()
-    
-    if 'auth_token' in st.session_state and st.session_state['auth_token'] == cookie_hash:
-        if time.time() - st.session_state.get('auth_timestamp', 0) < 30 * 24 * 60 * 60:
-            return True
+def check_auth_token(token):
+    """Prüfe ob Token gültig ist"""
+    if not token:
+        return False
     
     try:
-        auth_data = loadsheet("auth_cookies", ['cookie_hash', 'expires'])
-        if not auth_data.empty:
-            auth_data['expires'] = pd.to_datetime(auth_data['expires'], errors='coerce')
-            match = auth_data[auth_data['cookie_hash'] == cookie_hash]
-            if not match.empty:
-                expires = match.iloc[0]['expires']
-                if pd.notna(expires) and expires > datetime.now():
-                    st.session_state['auth_token'] = cookie_hash
-                    st.session_state['auth_timestamp'] = time.time()
-                    return True
+        auth_data = loadsheet("auth_tokens", ['token', 'expires'])
+        
+        if auth_data.empty:
+            return False
+        
+        auth_data['expires'] = pd.to_datetime(auth_data['expires'], errors='coerce')
+        match = auth_data[auth_data['token'] == token]
+        
+        if not match.empty:
+            expires = match.iloc[0]['expires']
+            if pd.notna(expires) and expires > datetime.now():
+                return True
     except:
         pass
+    
     return False
 
 def check_password():
-    if check_auth_cookie():
+    """Haupt-Login-Funktion mit URL-Token-Support"""
+    
+    # 1. Prüfe URL-Parameter
+    query_params = st.query_params
+    url_token = query_params.get("auth", None)
+    
+    if url_token and check_auth_token(url_token):
+        st.session_state["password_correct"] = True
+        return True
+    
+    # 2. Prüfe Session State
+    if st.session_state.get("password_correct", False):
         return True
     
     def entered():
@@ -671,15 +743,15 @@ def check_password():
         correct_password = st.secrets.get("passwords", {}).get("admin_password", "")
         
         if password and password == correct_password:
-            save_auth_cookie()
+            new_token = generate_auth_token()
+            if save_auth_token(new_token):
+                st.query_params["auth"] = new_token
+            
             st.session_state["password_correct"] = True
             if "password" in st.session_state:
                 del st.session_state["password"]
         elif password:
             st.session_state["password_correct"] = False
-    
-    if st.session_state.get("password_correct", False):
-        return True
     
     # ✅ Stylischer Login-Screen
     st.markdown("""
@@ -702,10 +774,9 @@ def check_password():
         if st.session_state.get("password_correct") == False:
             render_error_box("Falsches Passwort!")
         
+        render_info_box("Nach dem Login wird ein Token in der URL gespeichert. Speichere die URL als Lesezeichen für automatischen Login! (30 Tage gültig)")
+        
         st.markdown("""
-            <div style="text-align: center; margin-top: 1rem; padding: 1rem; background: #E8F5E9; border-radius: 12px;">
-                <span style="color: #2E7D32;">🍪 30 Tage eingeloggt bleiben</span>
-            </div>
             <p style="text-align: center; color: #888; margin-top: 1rem; font-size: 12px;">
                 ⚡ Famiglia Schneiderhan powered
             </p>
@@ -1314,17 +1385,10 @@ def render_learned_matches_manager():
 # MAIN APP
 # ========================================
 
-# Favicon laden mit Fallback
-try:
-    from PIL import Image
-    favicon = Image.open("favicon.ico")
-except:
-    favicon = "🏔️"  # Fallback auf Emoji
-
 st.set_page_config(
     page_title="halle11 | Padel & Tennis", 
     layout="wide", 
-    page_icon=favicon,
+    page_icon="🎾",  # ✅ Universell unterstütztes Emoji
     initial_sidebar_state="expanded"
 )
 
@@ -1742,9 +1806,9 @@ if 'corrections_cache_time' not in st.session_state:
 # ✅ NEU: Sound-Einstellung
 if 'sound_enabled' not in st.session_state:
     st.session_state.sound_enabled = True
-# ✅ NEU: Monatsziel
+# ✅ Monatsziel - aus Google Sheets laden (persistent!)
 if 'monthly_goal' not in st.session_state:
-    st.session_state.monthly_goal = 8000  # Default €8000
+    st.session_state.monthly_goal = get_monthly_goal()  # Lädt gespeicherten Wert
 
 if not st.session_state.data_loaded:
     dates = get_dates()
@@ -1833,15 +1897,23 @@ with st.sidebar.expander("⚙️ Einstellungen", expanded=False):
         help="Spielt einen Sound wenn WhatsApp gesendet wird"
     )
     
-    # Monatsziel
-    st.session_state.monthly_goal = st.number_input(
+    # ✅ Monatsziel aus Google Sheets laden (persistent!)
+    current_goal = get_monthly_goal()
+    new_goal = st.number_input(
         "🎯 Monatsziel (€)",
         min_value=1000,
         max_value=50000,
-        value=st.session_state.monthly_goal,
+        value=int(current_goal),
         step=500,
-        help="Dein Umsatz-Ziel für den Monat"
+        help="Dein Umsatz-Ziel für den Monat (wird gespeichert!)"
     )
+    
+    # Speichern wenn geändert
+    if new_goal != current_goal:
+        set_monthly_goal(new_goal)
+        st.success("✅ Ziel gespeichert!")
+    
+    st.session_state.monthly_goal = new_goal
 
 st.sidebar.markdown("---")
 
