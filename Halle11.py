@@ -574,6 +574,12 @@ def normalize_name(name):
             .replace('ä', 'ae').replace('ö', 'oe').replace('ü', 'ue')
             .replace('ß', 'ss').replace('-', ' ').replace('  ', ' '))
 
+def is_behoben_value(val):
+    """Robuster Check ob ein Wert 'behoben' bedeutet (Boolean oder String)."""
+    if val is None or pd.isna(val):
+        return False
+    return val in [True, 'True', 'true', 1, '1', 'TRUE']
+
 def parse_date_safe(date_val):
     """Robust date parsing that handles multiple formats."""
     if pd.isna(date_val) or date_val == '' or date_val == '-':
@@ -1440,6 +1446,52 @@ st.markdown(f"""
         --shadow-hover: {_shadow_hover};
     }}
     
+    /* ===== FORCE THEME COLORS ===== */
+    [data-testid="stAppViewContainer"],
+    [data-testid="stHeader"],
+    .main {{
+        background: {_app_bg} !important;
+    }}
+    
+    [data-testid="block-container"] {{
+        color: {_text_primary} !important;
+    }}
+    
+    /* ===== TEXT COLORS ===== */
+    .stMarkdown, .stMarkdown p, .stMarkdown span,
+    .stCaption, h1, h2, h3, h4, h5, h6,
+    label, .stTextInput label, .stSelectbox label,
+    [data-testid="stMetricValue"], [data-testid="stMetricLabel"],
+    .stDataFrame th, .stDataFrame td {{
+        color: {_text_primary} !important;
+    }}
+    
+    .stCaption, [data-testid="stMetricDelta"] {{
+        color: {_text_secondary} !important;
+    }}
+    
+    /* ===== STREAMLIT WIDGETS ===== */
+    .stTextInput input, .stSelectbox > div > div,
+    .stNumberInput input, .stDateInput input {{
+        background: {_card_bg} !important;
+        color: {_text_primary} !important;
+        border-color: {_card_border} !important;
+    }}
+    
+    .stExpander {{
+        background: {_card_bg} !important;
+        border-color: {_card_border} !important;
+    }}
+    
+    .stExpander [data-testid="stExpanderToggleIcon"] {{
+        color: {_text_primary} !important;
+    }}
+    
+    /* Checkbox/Toggle */
+    .stCheckbox label span {{
+        color: {_text_primary} !important;
+    }}
+    
     /* ===== GLOBALE STYLES ===== */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
@@ -1692,6 +1744,101 @@ st.markdown(f"""
         border-radius: 12px;
         overflow: hidden;
         box-shadow: 0 2px 8px var(--shadow-color);
+    }}
+    
+    /* ===== STREAMLIT NATIVE ELEMENTS (Theme-aware) ===== */
+    
+    /* Text und Labels */
+    .stMarkdown, .stText, p, span, label {{
+        color: {_text_primary} !important;
+    }}
+    
+    .stCaption, [data-testid="stCaptionContainer"] {{
+        color: {_text_secondary} !important;
+    }}
+    
+    /* Metrics */
+    [data-testid="stMetricValue"] {{
+        color: {_text_primary} !important;
+    }}
+    
+    [data-testid="stMetricLabel"] {{
+        color: {_text_secondary} !important;
+    }}
+    
+    [data-testid="stMetricDelta"] {{
+        color: {_text_secondary} !important;
+    }}
+    
+    /* Expander */
+    .stExpander {{
+        background: {_card_bg} !important;
+        border: 1px solid {_card_border} !important;
+        border-radius: 12px !important;
+    }}
+    
+    .stExpander [data-testid="stExpanderToggleIcon"] {{
+        color: {_text_primary} !important;
+    }}
+    
+    .stExpander summary {{
+        color: {_text_primary} !important;
+    }}
+    
+    /* Info/Success/Error Boxes */
+    [data-testid="stAlert"] {{
+        background: {_card_bg} !important;
+        border: 1px solid {_card_border} !important;
+        color: {_text_primary} !important;
+    }}
+    
+    /* Selectbox & Input */
+    .stSelectbox label, .stTextInput label, .stNumberInput label {{
+        color: {_text_primary} !important;
+    }}
+    
+    .stSelectbox [data-baseweb="select"] {{
+        background: {_card_bg} !important;
+        border-color: {_card_border} !important;
+    }}
+    
+    .stSelectbox [data-baseweb="select"] * {{
+        color: {_text_primary} !important;
+    }}
+    
+    /* Checkbox */
+    .stCheckbox label {{
+        color: {_text_primary} !important;
+    }}
+    
+    /* Toggle */
+    [data-testid="stToggle"] label {{
+        color: {_text_primary} !important;
+    }}
+    
+    /* Plotly Charts */
+    .js-plotly-plot {{
+        background: {_card_bg} !important;
+    }}
+    
+    /* Main Container */
+    [data-testid="stAppViewContainer"] {{
+        background: {_app_bg} !important;
+    }}
+    
+    [data-testid="stHeader"] {{
+        background: {_app_bg} !important;
+    }}
+    
+    /* DataFrame Headers und Zellen */
+    .stDataFrame th {{
+        background: {_card_bg} !important;
+        color: {_text_primary} !important;
+    }}
+    
+    .stDataFrame td {{
+        background: {_card_bg} !important;
+        color: {_text_primary} !important;
     }}
     
     /* ===== MOBILE RESPONSIVE ===== */
@@ -2295,9 +2442,12 @@ with tab1:
             # ✅ Verwende bereits geladene corrections (Rate Limit Fix!)
             behoben_keys = set()
             if not corrections_df.empty and 'key' in corrections_df.columns:
-                behoben_rows = corrections_df[corrections_df['behoben'] == True] if 'behoben' in corrections_df.columns else corrections_df[corrections_df['behoben'] == 'True']
-                for _, c_row in behoben_rows.iterrows():
-                    if pd.notna(c_row.get('key')):
+                # Robuster Check für Boolean/String
+                for _, c_row in corrections_df.iterrows():
+                    behoben_val = c_row.get('behoben', False)
+                    # Check für True, 'True', 'true', 1, '1'
+                    is_behoben = behoben_val in [True, 'True', 'true', 1, '1', 'TRUE']
+                    if is_behoben and pd.notna(c_row.get('key')):
                         behoben_keys.add(str(c_row['key']))
             
             # Status-Badge vor Namen - mit Behoben-Check
@@ -2488,7 +2638,7 @@ with tab1:
             if not corr.empty and 'key' in corr.columns:
                 match_corr = corr[corr['key'] == key]
                 if not match_corr.empty:
-                    is_behoben = bool(match_corr.iloc[0].get('behoben', False))
+                    is_behoben = is_behoben_value(match_corr.iloc[0].get('behoben'))
             if is_behoben:
                 fixed_count += 1
             else:
@@ -2504,7 +2654,7 @@ with tab1:
             if not corr.empty and 'key' in corr.columns:
                 match_corr = corr[corr['key'] == key]
                 if not match_corr.empty:
-                    is_behoben = bool(match_corr.iloc[0].get('behoben', False))
+                    is_behoben = is_behoben_value(match_corr.iloc[0].get('behoben'))
             status = "✓" if is_behoben else "!"
             fehler_options.append(f"{status} {row['Name']} · €{row['Betrag']} · {row.get('Service_Zeit', '')}")
         
@@ -2517,7 +2667,7 @@ with tab1:
         if not corr.empty and 'key' in corr.columns:
             match_corr = corr[corr['key'] == key]
             if not match_corr.empty:
-                is_behoben = bool(match_corr.iloc[0].get('behoben', False))
+                is_behoben = is_behoben_value(match_corr.iloc[0].get('behoben'))
         
         whatsapp_sent = get_whatsapp_sent_time(selected_row)
         
@@ -2537,6 +2687,7 @@ with tab1:
                     if not corr.empty and 'key' in corr.columns:
                         corr = corr[corr['key'] != key]
                         savesheet(corr, "corrections")
+                    loadsheet.clear()  # ✅ Cache leeren damit Liste aktualisiert!
                     st.rerun()
             else:
                 if st.button("Behoben", key=f"fix_{key}", use_container_width=True, type="primary"):
@@ -2544,6 +2695,7 @@ with tab1:
                         corr = corr[corr['key'] != key]
                     corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': st.session_state.current_date, 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
                     savesheet(corr, "corrections")
+                    loadsheet.clear()  # ✅ Cache leeren damit Liste aktualisiert!
                     st.rerun()
         
         with col2:
@@ -2599,7 +2751,7 @@ with tab1:
                     if not all_corrections.empty and 'key' in all_corrections.columns:
                         match_corr = all_corrections[all_corrections['key'] == key]
                         if not match_corr.empty:
-                            is_behoben = bool(match_corr.iloc[0].get('behoben', False))
+                            is_behoben = is_behoben_value(match_corr.iloc[0].get('behoben'))
                     
                     if not is_behoben:
                         open_fehler.append({
@@ -2643,6 +2795,7 @@ with tab1:
                                         'timestamp': datetime.now().isoformat()
                                     }])], ignore_index=True)
                                     savesheet(corr, "corrections")
+                                    loadsheet.clear()  # ✅ Cache leeren!
                                     st.rerun()
                         
                         st.markdown("---")
@@ -3645,99 +3798,161 @@ with tab4:
 # ========================================
 
 with tab5:
-    st.markdown("### Vielspieler")
+    st.markdown("### 💬 Vielspieler-Kommunikation")
+    st.caption("WhatsApp-Nachrichten an eure treuesten Spieler")
     
-    # Vielspieler finden
+    # ✅ Coming Soon Banner
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #1B5E20 0%, #43A047 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        color: white;
+    ">
+        <h4 style="margin: 0 0 0.5rem 0; color: white;">🚀 Coming Soon!</h4>
+        <p style="margin: 0; opacity: 0.9; font-size: 0.9rem;">
+            Dieses Feature wird euch ermöglichen, automatische WhatsApp-Nachrichten an eure Vielspieler zu senden:
+        </p>
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem;">
+            <span>🎁 Belohnungen</span>
+            <span>⭐ Bewertungen</span>
+            <span>🏔️ Events</span>
+            <span>💰 Angebote</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ✅ Vielspieler finden - NUR WELLPASS SPIELER (Relevant = Ja)
     buchungen = loadsheet("buchungen")
     if not buchungen.empty:
         buchungen['date_obj'] = pd.to_datetime(buchungen['analysis_date'], errors='coerce').dt.date
         cutoff = date.today() - timedelta(days=30)
-        recent = buchungen[(buchungen['date_obj'] >= cutoff) & (buchungen['Mitarbeiter'] != 'Ja')]
+        
+        # ✅ Nur Wellpass-relevante Buchungen (Relevant = Ja) und keine Mitarbeiter
+        recent = buchungen[
+            (buchungen['date_obj'] >= cutoff) & 
+            (buchungen['Mitarbeiter'] != 'Ja') &
+            (buchungen['Relevant'] == 'Ja')  # Wellpass-Spieler!
+        ]
         
         if not recent.empty:
             counts = recent.groupby('Name').size().reset_index(name='Buchungen')
             vielspieler = counts[counts['Buchungen'] >= 4].sort_values('Buchungen', ascending=False)
-            stammkunden = counts[counts['Buchungen'] >= 8].sort_values('Buchungen', ascending=False)
+            stammkunden = counts[counts['Buchungen'] >= 8]
             
+            # Metriken
             col1, col2, col3 = st.columns(3)
-            col1.metric("Vielspieler", len(vielspieler), "≥4x/Monat")
-            col2.metric("Stammkunden", len(stammkunden), "≥8x/Monat")
-            col3.metric("Top-Spieler", vielspieler.iloc[0]['Buchungen'] if not vielspieler.empty else 0, "Buchungen")
+            with col1:
+                st.metric("🎯 Vielspieler", len(vielspieler), "≥4x/30 Tage")
+            with col2:
+                st.metric("⭐ Stammkunden", len(stammkunden), "≥8x/30 Tage")
+            with col3:
+                top_count = int(vielspieler.iloc[0]['Buchungen']) if not vielspieler.empty else 0
+                st.metric("🏆 Top-Spieler", f"{top_count}x", "Buchungen")
             
             st.markdown("---")
+            st.markdown(f"### 👥 Eure Wellpass-Vielspieler ({len(vielspieler)})")
             
             if not vielspieler.empty:
-                st.markdown("**Top 10 Vielspieler**")
-                for i, (_, row) in enumerate(vielspieler.head(10).iterrows()):
-                    col1, col2, col3 = st.columns([3, 1, 1])
-                    col1.write(f"{i+1}. {row['Name']}")
-                    col2.write(f"{row['Buchungen']}x")
-                    col3.button("WhatsApp", key=f"viel_{row['Name']}", disabled=True)
+                # ✅ Saubere DataFrame-Darstellung
+                display_df = vielspieler.head(15).copy()
+                display_df.index = range(1, len(display_df) + 1)  # 1-indexed
+                display_df.columns = ['Spieler', 'Buchungen']
+                
+                # Medaillen hinzufügen
+                def add_medal(idx):
+                    if idx == 1: return "🥇"
+                    if idx == 2: return "🥈"
+                    if idx == 3: return "🥉"
+                    return f"{idx}."
+                
+                display_df['#'] = [add_medal(i) for i in range(1, len(display_df) + 1)]
+                display_df = display_df[['#', 'Spieler', 'Buchungen']]
+                
+                st.dataframe(
+                    display_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=min(len(display_df) * 35 + 40, 600)
+                )
+            else:
+                st.info("Noch keine Vielspieler in den letzten 30 Tagen")
+        else:
+            st.info("Keine Wellpass-Buchungen in den letzten 30 Tagen")
+    else:
+        st.info("Keine Buchungsdaten vorhanden")
     
     st.markdown("---")
-    st.markdown("### Nachrichtenvorlagen")
-    st.caption("Kopiere und personalisiere diese Nachrichten für WhatsApp oder E-Mail")
     
-    # Alle 20 Nachrichtenvorlagen
-    templates = {
-        "Danke & Wertschätzung": [
-            ("Kaffee-Gutschein", 
-             "Hallo {name}, danke für deine Treue bei halle11! ☕ Dein nächster Kaffee geht auf uns. Zeig diese Nachricht einfach an der Theke. Bis bald am Berg!"),
-            ("Getränk gratis", 
-             "Hey {name}! Als Dankeschön für deine {anzahl} Buchungen: Dein nächstes Getränk ist frei! Einfach diese Nachricht zeigen. Wir freuen uns auf dich!"),
-            ("VIP-Buchung", 
-             "Hallo {name}, als einer unserer treuesten Spieler kannst du ab sofort 24 Stunden früher buchen! Einfach bei der Buchung 'Stammkunde' angeben."),
-            ("Geburtstag", 
-             "Happy Birthday, {name}! 🎉 Zu deinem Ehrentag schenken wir dir 20% auf deine nächste Buchung. Code: BIRTHDAY{jahr}. Feier schön!"),
-            ("Jubiläum", 
-             "Wow {name}! Du hast gerade deine {anzahl}. Buchung bei uns gemacht! 🏆 Das muss gefeiert werden - dein nächstes Spiel geht auf uns!"),
-        ],
-        "Feedback & Bewertung": [
-            ("Google Review", 
-             "Hallo {name}, du bist einer unserer aktivsten Spieler - deine Meinung zählt! Würdest du uns mit einer Google-Bewertung unterstützen? 🙏 [Link] Danke dir!"),
-            ("Feedback", 
-             "Hey {name}, kurze Frage: Was können wir bei halle11 besser machen? Dein Feedback hilft uns enorm. Antworte einfach auf diese Nachricht!"),
-            ("Weiterempfehlung", 
-             "Hallo {name}! Kennst du jemanden, der Padel oder Tennis ausprobieren möchte? Bring einen Freund mit - ihr bekommt beide 10% Rabatt! Code: FRIENDS"),
-            ("Instagram", 
-             "Hey {name}! Poste eine Story von deinem nächsten Match und tagge @halle11 - wir haben eine kleine Überraschung für dich! 📸"),
-        ],
-        "Events & Community": [
-            ("Turnier-Einladung", 
-             "Hallo {name}! Am [Datum] findet unser nächstes Turnier statt. Als Vielspieler bekommst du VIP-Zugang und bevorzugte Anmeldung. Bist du dabei?"),
-            ("Gratis Training", 
-             "Hey {name}, Lust auf ein kostenloses Schnupper-Training mit unserem Coach? Als Dankeschön für deine Treue - meld dich einfach!"),
-            ("Partner-Suche", 
-             "Hallo {name}! Wir haben gesehen, dass du oft alleine buchst. Sollen wir dir einen passenden Spielpartner vermitteln? Sag uns dein Level!"),
-            ("Liga-Info", 
-             "Hey {name}! Unsere neue Padel-Liga startet im [Monat]. Mit deinem Spielniveau wärst du perfekt dabei. Interesse? Antwort genügt!"),
-            ("Saisonkarte", 
-             "Hallo {name}, bei {anzahl} Buchungen im Monat lohnt sich unsere Saisonkarte! Spare 15% auf alle Buchungen. Soll ich dir Infos schicken?"),
-        ],
-        "Reaktivierung": [
-            ("Vermissen", 
-             "Hey {name}, lang nicht gesehen! ⛰️ Wir vermissen dich am Berg. Hier ist ein 15% Comeback-Rabatt für dich: COMEBACK15. Gültig 14 Tage!"),
-            ("Neues Feature", 
-             "Hallo {name}! Kennst du schon unsere neuen [Feature/Courts/Zeiten]? Perfekter Grund für ein Comeback! Wir freuen uns auf dich."),
-            ("Wetter-Push", 
-             "Hey {name}, morgen wird perfektes Wetter am Berg! ☀️ Wir haben noch Courts frei. Spontan Lust auf ein Match?"),
-        ],
-        "Upselling": [
-            ("Schläger-Test", 
-             "Hallo {name}! Wir haben neue HEAD-Schläger zum Testen da. Als Stammkunde kannst du sie kostenlos ausprobieren. Interesse?"),
-            ("Bälle-Abo", 
-             "Hey {name}, immer frische Bälle für nur €5/Monat? Mit unserem Ball-Abo spielst du immer mit Top-Material. Soll ich aktivieren?"),
-            ("Privat-Training", 
-             "Hallo {name}! Bereit für das nächste Level? Unser Coach bietet 1:1 Training an. Als Stammkunde: Erste Stunde 20% günstiger!"),
-        ],
-    }
+    # ✅ Nachrichten-Vorlagen im halle11-Stil
+    st.markdown("### 💬 Beispiel-Nachrichten")
     
-    for category, messages in templates.items():
-        with st.expander(f"{category} ({len(messages)} Vorlagen)"):
-            for title, template in messages:
-                st.markdown(f"**{title}**")
-                st.code(template, language=None)
-                st.markdown("---")
+    templates_halle11 = [
+        {
+            "icon": "🎁",
+            "title": "Danke für deine Treue",
+            "template": """Servus {name}! 🏔️
+
+Du bist einer unserer treuesten Spieler - {buchungen}x warst du diesen Monat bei uns am Berg!
+
+Als kleines Dankeschön bekommst du beim nächsten Besuch einen Kaffee aufs Haus ☕
+
+Bis bald in der halle11!
+Dein halle11 Team""",
+            "placeholders": "{name}, {buchungen}"
+        },
+        {
+            "icon": "⭐",
+            "title": "Bitte um Bewertung",
+            "template": """Hey {name}! 🎾
+
+Wir hoffen, du hattest wieder eine super Session bei uns am Berg!
+
+Würdest du uns mit einer Google-Bewertung unterstützen? Das würde uns mega helfen! ⭐⭐⭐⭐⭐
+
+👉 [Google Review Link]
+
+Vielen Dank!
+Dein halle11 Team""",
+            "placeholders": "{name}"
+        },
+        {
+            "icon": "🏔️",
+            "title": "Event-Einladung",
+            "template": """Servus {name}! 🎾
+
+Am [DATUM] steigt unser nächstes Turnier am Berg!
+
+Als Vielspieler bist du natürlich herzlich eingeladen.
+Melde dich bis [DATUM] an und sichere dir deinen Platz!
+
+Wir freuen uns auf dich! ⛰️
+Dein halle11 Team""",
+            "placeholders": "{name}, [DATUM]"
+        },
+        {
+            "icon": "💰",
+            "title": "Comeback-Rabatt",
+            "template": """Hey {name}! 🏔️
+
+Wir haben dich lang nicht mehr am Berg gesehen!
+
+Hier ist ein 15% Comeback-Rabatt für dich: COMEBACK15
+Gültig 14 Tage.
+
+Wir freuen uns auf dein Comeback!
+Dein halle11 Team""",
+            "placeholders": "{name}"
+        },
+    ]
+    
+    for tmpl in templates_halle11:
+        with st.expander(f"{tmpl['icon']} {tmpl['title']}", expanded=False):
+            st.code(tmpl['template'], language=None)
+            st.caption(f"Platzhalter: {tmpl['placeholders']}")
 
 
 # ========================================
@@ -3749,9 +3964,9 @@ st.markdown("""
     margin-top: 3rem; 
     padding: 1.5rem; 
     text-align: center;
-    color: #86868B;
+    color: var(--text-secondary, #86868B);
     font-size: 0.75rem;
 ">
-    halle11 · v16
+    🏔️ halle11 · v16.1
 </div>
 """, unsafe_allow_html=True)
