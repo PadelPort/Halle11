@@ -2590,33 +2590,82 @@ with tab1:
     
     st.markdown("---")
     
-    # DOPPELSPIELER - Spieler die heute mehrfach spielen
-    st.markdown("### Mehrfach-Spieler heute")
+    # ========================================
+    # MEHRFACH-SPIELER - Spieler die heute mehrfach spielen
+    # ========================================
+    st.markdown("### 🔄 Mehrfach-Spieler heute")
+    
+    # Filtere Stornierungen aus (falls vorhanden)
+    df_aktiv = df.copy()
+    if 'Refund id' in df_aktiv.columns:
+        df_aktiv = df_aktiv[df_aktiv['Refund id'].isin(['-', '', None]) | df_aktiv['Refund id'].isna()]
+    if 'Payment status' in df_aktiv.columns:
+        df_aktiv = df_aktiv[df_aktiv['Payment status'] != 'Refund']
+    
+    # Nur Nicht-Mitarbeiter
+    df_spieler = df_aktiv[df_aktiv['Mitarbeiter'] != 'Ja'].copy()
     
     # Zähle Buchungen pro Spieler an diesem Tag
-    player_counts = df[df['Mitarbeiter'] != 'Ja'].groupby('Name').size().reset_index(name='Spiele')
+    player_counts = df_spieler.groupby('Name').size().reset_index(name='Spiele')
     doppelspieler = player_counts[player_counts['Spiele'] >= 2].sort_values('Spiele', ascending=False)
     
     if not doppelspieler.empty:
-        st.caption(f"{len(doppelspieler)} Spieler mit 2+ Buchungen")
+        st.caption(f"{len(doppelspieler)} Spieler mit 2+ Buchungen (Stornierungen ausgenommen)")
         
         for _, row in doppelspieler.iterrows():
             # Finde alle Buchungen dieses Spielers
-            spieler_buchungen = df[df['Name'] == row['Name']]
+            spieler_buchungen = df_spieler[df_spieler['Name'] == row['Name']].copy()
             zeiten = spieler_buchungen['Service_Zeit'].tolist() if 'Service_Zeit' in spieler_buchungen.columns else []
             zeiten_str = " · ".join([str(z) for z in zeiten if z])
             
-            # Gesamtbetrag
-            spieler_buchungen['Betrag_num'] = pd.to_numeric(spieler_buchungen['Betrag'], errors='coerce').fillna(0)
-            gesamt = spieler_buchungen['Betrag_num'].sum()
+            # Einzelne Beträge berechnen
+            spieler_buchungen['Betrag_num'] = pd.to_numeric(
+                spieler_buchungen['Betrag'].astype(str).str.replace(',', '.'), 
+                errors='coerce'
+            ).fillna(0)
+            einzelne_betraege = spieler_buchungen['Betrag_num'].tolist()
+            gesamt = sum(einzelne_betraege)
             
-            col1, col2, col3 = st.columns([3, 1, 1])
-            col1.write(f"**{row['Name']}**")
-            col2.write(f"{row['Spiele']}x")
-            col3.write(f"€{gesamt:.2f}")
+            # Prüfe ob Wellpass-relevant (Betrag < 6€)
+            is_wellpass = any(b > 0 and b < 6 for b in einzelne_betraege)
+            wellpass_badge = "💳" if is_wellpass else ""
             
-            if zeiten_str:
-                st.caption(f"Zeiten: {zeiten_str}")
+            # Anzeige
+            st.markdown(f"""
+                <div style="
+                    background: var(--card-bg, white);
+                    border: 1px solid var(--card-border, #e0e0e0);
+                    border-left: 4px solid {'#1B5E20' if is_wellpass else '#666'};
+                    border-radius: 8px;
+                    padding: 0.8rem 1rem;
+                    margin-bottom: 0.5rem;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 600; color: var(--text-primary, #1a1a1a);">
+                            {wellpass_badge} {row['Name']}
+                        </span>
+                        <div>
+                            <span style="
+                                background: {COLORS['primary']};
+                                color: white;
+                                padding: 0.2rem 0.6rem;
+                                border-radius: 12px;
+                                font-size: 0.85rem;
+                                margin-right: 0.5rem;
+                            ">{row['Spiele']}x</span>
+                            <span style="font-weight: 600; color: var(--text-primary, #1a1a1a);">
+                                €{gesamt:.2f}
+                            </span>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary, #666); margin-top: 0.3rem;">
+                        Beträge: {' + '.join([f'€{b:.2f}' for b in einzelne_betraege])}
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary, #666);">
+                        Zeiten: {zeiten_str if zeiten_str else 'N/A'}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
     else:
         st.caption("Keine Spieler mit mehreren Buchungen heute")
     
@@ -2879,7 +2928,7 @@ with tab2:
     gesamt_umsatz = revenue_month['gesamt'] + wellpass_revenue_monat
     
     # ========================================
-    # 🎯 UMSATZ-ZIEL FORTSCHRITT
+    # 🎯 UMSATZ-ZIEL FORTSCHRITT (Ladebalken)
     # ========================================
     
     monthly_goal = st.session_state.get('monthly_goal', 8000)
@@ -2905,7 +2954,7 @@ with tab2:
     else:
         projected_total = 0
     
-    # Progress Bar Farbe
+    # Progress Bar Farbe & Status
     if progress_pct >= 100:
         bar_color = COLORS['success']
         status_emoji = "🎉"
@@ -2917,144 +2966,79 @@ with tab2:
     else:
         bar_color = COLORS['warning']
         status_emoji = "⚠️"
-        status_text = f"Noch €{remaining:.0f} nötig"
+        status_text = f"Noch €{remaining:.0f}"
     
     # ========================================
-    # 🏔️ BERGSTEIGER-VISUALISIERUNG
+    # 📊 FORTSCHRITTSBALKEN (wie Padel Port)
     # ========================================
     
-    # Berg-Parameter: Ziel = Gipfel (2.962m wie die Zugspitze skaliert)
-    gipfel_hoehe = 2962  # Symbolische Höhe
-    aktuelle_hoehe = int((gesamt_umsatz / monthly_goal) * gipfel_hoehe) if monthly_goal > 0 else 0
-    aktuelle_hoehe = min(aktuelle_hoehe, gipfel_hoehe)
+    st.markdown(f"### 🎯 Monatsziel: €{monthly_goal:,.0f}")
     
-    # Berg-Profil erstellen (x = Fortschritt, y = Höhe)
-    berg_x = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    berg_y = [0, 400, 850, 1200, 1650, 1950, 2250, 2500, 2750, 2900, gipfel_hoehe]
+    # Fortschrittsbalken mit HTML/CSS
+    st.markdown(f"""
+        <div style="
+            background: var(--card-bg, #f0f0f0);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border: 1px solid var(--card-border, #e0e0e0);
+        ">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="font-weight: 600; color: var(--text-primary, #1a1a1a);">
+                    €{gesamt_umsatz:,.2f} von €{monthly_goal:,.0f}
+                </span>
+                <span style="font-weight: 600; color: {bar_color};">
+                    {status_emoji} {progress_pct:.1f}%
+                </span>
+            </div>
+            
+            <!-- Fortschrittsbalken -->
+            <div style="
+                background: var(--card-border, #e0e0e0);
+                border-radius: 10px;
+                height: 24px;
+                position: relative;
+                overflow: hidden;
+            ">
+                <!-- Soll-Linie (wo man sein sollte) -->
+                <div style="
+                    position: absolute;
+                    left: {expected_pct}%;
+                    top: 0;
+                    bottom: 0;
+                    width: 3px;
+                    background: #666;
+                    z-index: 2;
+                "></div>
+                
+                <!-- Aktueller Fortschritt -->
+                <div style="
+                    background: linear-gradient(90deg, {COLORS['primary']} 0%, {bar_color} 100%);
+                    height: 100%;
+                    width: {progress_pct}%;
+                    border-radius: 10px;
+                    transition: width 0.5s ease;
+                "></div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary, #666);">
+                <span>Tag {days_passed} von {days_in_month}</span>
+                <span>Soll: {expected_pct:.0f}% | Ist: {progress_pct:.0f}%</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
     
-    # Fortschritts-Position auf dem Berg
-    progress_x = progress_pct / 100
-    progress_y = aktuelle_hoehe
-    
-    # Erwartete Position (wo man sein sollte)
-    expected_x = expected_pct / 100
-    expected_idx = min(int(expected_x * 10), 10)
-    expected_y = berg_y[expected_idx] if expected_idx < len(berg_y) else gipfel_hoehe
-    
-    fig_berg = go.Figure()
-    
-    # Berg-Silhouette (gefüllt)
-    fig_berg.add_trace(go.Scatter(
-        x=berg_x, y=berg_y,
-        fill='tozeroy',
-        fillcolor='rgba(27, 94, 32, 0.3)',
-        line=dict(color=COLORS['primary'], width=3),
-        name='Berg',
-        hoverinfo='skip'
-    ))
-    
-    # Schnee auf dem Gipfel
-    fig_berg.add_trace(go.Scatter(
-        x=[0.85, 0.9, 0.95, 1.0],
-        y=[2600, 2900, 2950, gipfel_hoehe],
-        fill='toself',
-        fillcolor='rgba(255, 255, 255, 0.8)',
-        line=dict(color='white', width=1),
-        name='Schnee',
-        hoverinfo='skip'
-    ))
-    
-    # Aktueller Stand (Wanderer)
-    fig_berg.add_trace(go.Scatter(
-        x=[progress_x],
-        y=[progress_y],
-        mode='markers+text',
-        marker=dict(size=20, color=COLORS['secondary'], symbol='triangle-up'),
-        text=['⛷️'],
-        textposition='top center',
-        textfont=dict(size=24),
-        name=f'Aktuell: €{gesamt_umsatz:.0f}',
-        hovertemplate=f'<b>Aktueller Stand</b><br>€{gesamt_umsatz:.0f}<br>{aktuelle_hoehe}m<extra></extra>'
-    ))
-    
-    # Gipfel-Markierung
-    fig_berg.add_trace(go.Scatter(
-        x=[1.0],
-        y=[gipfel_hoehe + 100],
-        mode='markers+text',
-        marker=dict(size=15, color=COLORS['error'], symbol='star'),
-        text=[f'🏔️ Ziel: €{monthly_goal:.0f}'],
-        textposition='top center',
-        textfont=dict(size=12, color=COLORS['primary']),
-        name='Gipfel',
-        hovertemplate=f'<b>Monatsziel</b><br>€{monthly_goal:.0f}<br>{gipfel_hoehe}m<extra></extra>'
-    ))
-    
-    # Erwartete Position (gestrichelte Linie)
-    if days_passed > 0 and days_passed < days_in_month:
-        fig_berg.add_trace(go.Scatter(
-            x=[expected_x, expected_x],
-            y=[0, expected_y],
-            mode='lines',
-            line=dict(color='gray', width=2, dash='dash'),
-            name=f'Soll: Tag {days_passed}',
-            hovertemplate=f'<b>Sollstand Tag {days_passed}</b><br>€{(monthly_goal * expected_pct / 100):.0f}<extra></extra>'
-        ))
-    
-    # Layout
-    fig_berg.update_layout(
-        title=dict(
-            text=f"🏔️ Aufstieg zum Monatsziel · {aktuelle_hoehe}m von {gipfel_hoehe}m",
-            font=dict(size=16)
-        ),
-        xaxis=dict(
-            title="Fortschritt",
-            tickformat='.0%',
-            range=[-0.05, 1.1],
-            showgrid=False
-        ),
-        yaxis=dict(
-            title="Höhenmeter",
-            ticksuffix='m',
-            range=[0, gipfel_hoehe + 300],
-            showgrid=True,
-            gridcolor='rgba(0,0,0,0.1)'
-        ),
-        height=350,
-        showlegend=False,
-        margin=dict(t=50, b=50, l=50, r=30),
-        plot_bgcolor='rgba(245, 250, 255, 0.5)'
-    )
-    
-    # Annotations für Status
-    status_color = COLORS['success'] if progress_pct >= 100 else (COLORS['primary'] if on_track else COLORS['warning'])
-    
-    if progress_pct >= 100:
-        fig_berg.add_annotation(
-            x=0.5, y=gipfel_hoehe + 200,
-            text="🎉 GIPFEL ERREICHT!",
-            showarrow=False,
-            font=dict(size=18, color=COLORS['success']),
-            bgcolor='white',
-            bordercolor=COLORS['success'],
-            borderwidth=2,
-            borderpad=10
-        )
-    
-    st.plotly_chart(fig_berg, use_container_width=True)
-    
-    # Kompakte Stats unter dem Berg
+    # Kompakte Stats
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Höhe", f"{aktuelle_hoehe}m", f"{progress_pct:.0f}%")
+        st.metric("💰 Aktuell", f"€{gesamt_umsatz:,.0f}", f"{progress_pct:.0f}%")
     with col2:
-        verbleibend = gipfel_hoehe - aktuelle_hoehe
-        st.metric("Bis Gipfel", f"{verbleibend}m", f"€{remaining:.0f}")
+        st.metric("🎯 Noch offen", f"€{remaining:,.0f}", f"-{100-progress_pct:.0f}%")
     with col3:
-        st.metric("Prognose", f"€{projected_total:.0f}", "Monatsende")
+        st.metric("📈 Prognose", f"€{projected_total:,.0f}", "Monatsende")
     with col4:
         tempo = "🟢 Im Plan" if on_track else "🟡 Aufholen"
-        st.metric("Status", tempo, f"Tag {days_passed}/{days_in_month}")
+        st.metric("📊 Status", tempo, f"Tag {days_passed}/{days_in_month}")
     
     st.markdown("---")
     
@@ -3794,104 +3778,19 @@ with tab4:
 
 
 # ========================================
-# TAB 5: VIELSPIELER
+# TAB 5: VIELSPIELER & WHATSAPP
 # ========================================
 
 with tab5:
     st.markdown("### 💬 Vielspieler-Kommunikation")
-    st.caption("WhatsApp-Nachrichten an eure treuesten Spieler")
+    st.caption("WhatsApp-Nachrichten an eure treuesten Spieler senden")
     
-    # ✅ Coming Soon Banner
-    st.markdown("""
-    <div style="
-        background: linear-gradient(135deg, #1B5E20 0%, #43A047 100%);
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        color: white;
-    ">
-        <h4 style="margin: 0 0 0.5rem 0; color: white;">🚀 Coming Soon!</h4>
-        <p style="margin: 0; opacity: 0.9; font-size: 0.9rem;">
-            Dieses Feature wird euch ermöglichen, automatische WhatsApp-Nachrichten an eure Vielspieler zu senden:
-        </p>
-        <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem;">
-            <span>🎁 Belohnungen</span>
-            <span>⭐ Bewertungen</span>
-            <span>🏔️ Events</span>
-            <span>💰 Angebote</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # ========================================
+    # NACHRICHTENVORLAGEN DEFINIEREN
+    # ========================================
     
-    st.markdown("---")
-    
-    # ✅ Vielspieler finden - NUR WELLPASS SPIELER (Relevant = Ja)
-    buchungen = loadsheet("buchungen")
-    if not buchungen.empty:
-        buchungen['date_obj'] = pd.to_datetime(buchungen['analysis_date'], errors='coerce').dt.date
-        cutoff = date.today() - timedelta(days=30)
-        
-        # ✅ Nur Wellpass-relevante Buchungen (Relevant = Ja) und keine Mitarbeiter
-        recent = buchungen[
-            (buchungen['date_obj'] >= cutoff) & 
-            (buchungen['Mitarbeiter'] != 'Ja') &
-            (buchungen['Relevant'] == 'Ja')  # Wellpass-Spieler!
-        ]
-        
-        if not recent.empty:
-            counts = recent.groupby('Name').size().reset_index(name='Buchungen')
-            vielspieler = counts[counts['Buchungen'] >= 4].sort_values('Buchungen', ascending=False)
-            stammkunden = counts[counts['Buchungen'] >= 8]
-            
-            # Metriken
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("🎯 Vielspieler", len(vielspieler), "≥4x/30 Tage")
-            with col2:
-                st.metric("⭐ Stammkunden", len(stammkunden), "≥8x/30 Tage")
-            with col3:
-                top_count = int(vielspieler.iloc[0]['Buchungen']) if not vielspieler.empty else 0
-                st.metric("🏆 Top-Spieler", f"{top_count}x", "Buchungen")
-            
-            st.markdown("---")
-            st.markdown(f"### 👥 Eure Wellpass-Vielspieler ({len(vielspieler)})")
-            
-            if not vielspieler.empty:
-                # ✅ Saubere DataFrame-Darstellung
-                display_df = vielspieler.head(15).copy()
-                display_df.index = range(1, len(display_df) + 1)  # 1-indexed
-                display_df.columns = ['Spieler', 'Buchungen']
-                
-                # Medaillen hinzufügen
-                def add_medal(idx):
-                    if idx == 1: return "🥇"
-                    if idx == 2: return "🥈"
-                    if idx == 3: return "🥉"
-                    return f"{idx}."
-                
-                display_df['#'] = [add_medal(i) for i in range(1, len(display_df) + 1)]
-                display_df = display_df[['#', 'Spieler', 'Buchungen']]
-                
-                st.dataframe(
-                    display_df,
-                    use_container_width=True,
-                    hide_index=True,
-                    height=min(len(display_df) * 35 + 40, 600)
-                )
-            else:
-                st.info("Noch keine Vielspieler in den letzten 30 Tagen")
-        else:
-            st.info("Keine Wellpass-Buchungen in den letzten 30 Tagen")
-    else:
-        st.info("Keine Buchungsdaten vorhanden")
-    
-    st.markdown("---")
-    
-    # ✅ Nachrichten-Vorlagen im halle11-Stil
-    st.markdown("### 💬 Beispiel-Nachrichten")
-    
-    templates_halle11 = [
-        {
+    WHATSAPP_TEMPLATES = {
+        "danke": {
             "icon": "🎁",
             "title": "Danke für deine Treue",
             "template": """Servus {name}! 🏔️
@@ -3902,9 +3801,9 @@ Als kleines Dankeschön bekommst du beim nächsten Besuch einen Kaffee aufs Haus
 
 Bis bald in der halle11!
 Dein halle11 Team""",
-            "placeholders": "{name}, {buchungen}"
+            "placeholders": ["{name}", "{buchungen}"]
         },
-        {
+        "bewertung": {
             "icon": "⭐",
             "title": "Bitte um Bewertung",
             "template": """Hey {name}! 🎾
@@ -3917,9 +3816,9 @@ Würdest du uns mit einer Google-Bewertung unterstützen? Das würde uns mega he
 
 Vielen Dank!
 Dein halle11 Team""",
-            "placeholders": "{name}"
+            "placeholders": ["{name}"]
         },
-        {
+        "event": {
             "icon": "🏔️",
             "title": "Event-Einladung",
             "template": """Servus {name}! 🎾
@@ -3931,9 +3830,9 @@ Melde dich bis [DATUM] an und sichere dir deinen Platz!
 
 Wir freuen uns auf dich! ⛰️
 Dein halle11 Team""",
-            "placeholders": "{name}, [DATUM]"
+            "placeholders": ["{name}", "[DATUM]"]
         },
-        {
+        "comeback": {
             "icon": "💰",
             "title": "Comeback-Rabatt",
             "template": """Hey {name}! 🏔️
@@ -3945,14 +3844,320 @@ Gültig 14 Tage.
 
 Wir freuen uns auf dein Comeback!
 Dein halle11 Team""",
-            "placeholders": "{name}"
+            "placeholders": ["{name}"]
         },
-    ]
+        "wellpass_reminder": {
+            "icon": "📱",
+            "title": "Wellpass Check-in Erinnerung",
+            "template": """Servus {name}! 🏔️
+
+Du hast heute um {zeit} bei uns gespielt - top! 🎾
+
+Kleine Bitte: Wir haben deinen Wellpass-Check-In noch nicht im System. 
+Wär klasse, wenn du ihn schnell nachholen könntest!
+
+👉 QR-Code: [WELLPASS_QR_LINK]
+
+Danke dir und bis bald am Berg! ⛰️
+Dein halle11 Team""",
+            "placeholders": ["{name}", "{zeit}"]
+        },
+        "geburtstag": {
+            "icon": "🎂",
+            "title": "Geburtstag",
+            "template": """Happy Birthday, {name}! 🎉🏔️
+
+Zu deinem Ehrentag schenken wir dir 20% auf deine nächste Buchung!
+Code: BIRTHDAY2024
+
+Feier schön und bis bald am Berg! 🎾
+Dein halle11 Team""",
+            "placeholders": ["{name}"]
+        },
+    }
     
-    for tmpl in templates_halle11:
+    # ========================================
+    # SPIELER-LISTE LADEN
+    # ========================================
+    
+    buchungen = loadsheet("buchungen")
+    vielspieler_list = []
+    all_players_list = []
+    
+    if not buchungen.empty:
+        buchungen['date_obj'] = pd.to_datetime(buchungen['analysis_date'], errors='coerce').dt.date
+        cutoff = date.today() - timedelta(days=30)
+        
+        # Vielspieler (≥4 Wellpass-Buchungen in 30 Tagen)
+        recent = buchungen[
+            (buchungen['date_obj'] >= cutoff) & 
+            (buchungen['Mitarbeiter'] != 'Ja') &
+            (buchungen['Relevant'] == 'Ja')
+        ]
+        
+        if not recent.empty:
+            counts = recent.groupby('Name').agg({
+                'Name': 'first',
+                'analysis_date': 'count'
+            }).rename(columns={'analysis_date': 'Buchungen'}).reset_index(drop=True)
+            counts = recent.groupby('Name').size().reset_index(name='Buchungen')
+            vielspieler = counts[counts['Buchungen'] >= 4].sort_values('Buchungen', ascending=False)
+            vielspieler_list = vielspieler['Name'].tolist()
+        
+        # Alle Spieler (für manuelle Auswahl)
+        all_players_list = sorted(buchungen['Name'].unique().tolist())
+    
+    # ========================================
+    # WHATSAPP SENDEN UI
+    # ========================================
+    
+    st.markdown("### 📤 Nachricht senden")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Empfänger-Auswahl
+        empfaenger_modus = st.radio(
+            "Empfänger wählen:",
+            ["📋 Aus Vielspieler-Liste", "👤 Alle Spieler", "✏️ Manuelle Nummer"],
+            horizontal=True,
+            key="empfaenger_modus"
+        )
+        
+        selected_player = None
+        manual_phone = None
+        manual_name = None
+        
+        if empfaenger_modus == "📋 Aus Vielspieler-Liste":
+            if vielspieler_list:
+                selected_player = st.selectbox(
+                    "Vielspieler auswählen:",
+                    options=vielspieler_list,
+                    format_func=lambda x: f"{x} ({counts[counts['Name']==x]['Buchungen'].values[0]}x)" if not counts[counts['Name']==x].empty else x,
+                    key="vielspieler_select"
+                )
+            else:
+                st.info("Keine Vielspieler gefunden (≥4 Wellpass-Buchungen in 30 Tagen)")
+        
+        elif empfaenger_modus == "👤 Alle Spieler":
+            if all_players_list:
+                selected_player = st.selectbox(
+                    "Spieler auswählen:",
+                    options=all_players_list,
+                    key="alle_spieler_select"
+                )
+            else:
+                st.info("Keine Spieler gefunden")
+        
+        else:  # Manuelle Nummer
+            manual_phone = st.text_input(
+                "📱 Telefonnummer (mit +49):",
+                placeholder="+49151...",
+                key="manual_phone"
+            )
+            manual_name = st.text_input(
+                "👤 Name (für Platzhalter):",
+                placeholder="Max Mustermann",
+                key="manual_name"
+            )
+    
+    with col2:
+        # Template-Auswahl
+        template_options = {k: f"{v['icon']} {v['title']}" for k, v in WHATSAPP_TEMPLATES.items()}
+        selected_template_key = st.selectbox(
+            "📝 Nachrichtenvorlage:",
+            options=list(template_options.keys()),
+            format_func=lambda x: template_options[x],
+            key="template_select"
+        )
+        
+        selected_template = WHATSAPP_TEMPLATES[selected_template_key]
+        
+        # Platzhalter anzeigen
+        st.caption(f"Platzhalter: {', '.join(selected_template['placeholders'])}")
+    
+    # ========================================
+    # NACHRICHT VORSCHAU & BEARBEITUNG
+    # ========================================
+    
+    st.markdown("---")
+    st.markdown("### 📝 Nachricht anpassen")
+    
+    # Platzhalter ersetzen
+    template_text = selected_template['template']
+    
+    # Name ersetzen
+    if selected_player:
+        template_text = template_text.replace("{name}", selected_player.split()[0])
+        template_text = template_text.replace("{buchungen}", str(counts[counts['Name']==selected_player]['Buchungen'].values[0]) if not counts[counts['Name']==selected_player].empty else "X")
+    elif manual_name:
+        template_text = template_text.replace("{name}", manual_name.split()[0] if manual_name else "")
+        template_text = template_text.replace("{buchungen}", "X")
+    
+    # Bearbeitbares Textfeld
+    final_message = st.text_area(
+        "Nachricht (bearbeitbar):",
+        value=template_text,
+        height=250,
+        key="final_message"
+    )
+    
+    # ========================================
+    # SENDEN BUTTONS
+    # ========================================
+    
+    col_send, col_test = st.columns(2)
+    
+    with col_send:
+        can_send = (selected_player is not None) or (manual_phone and manual_name)
+        
+        if st.button("📤 WhatsApp senden", type="primary", use_container_width=True, disabled=not can_send):
+            st.session_state['confirm_vielspieler_wa'] = True
+    
+    with col_test:
+        if st.button("🧪 Test an Admin", use_container_width=True):
+            # Test an Admin-Nummer senden
+            try:
+                from twilio.rest import Client
+                
+                twilio_conf = st.secrets.get("twilio", {})
+                account_sid = twilio_conf.get("account_sid")
+                auth_token = twilio_conf.get("auth_token")
+                from_number = twilio_conf.get("whatsapp_from")
+                admin_phone = twilio_conf.get("whatsapp_to")
+                
+                if all([account_sid, auth_token, from_number, admin_phone]):
+                    client = Client(account_sid, auth_token)
+                    
+                    to_number = admin_phone if admin_phone.startswith("whatsapp:") else f"whatsapp:{admin_phone}"
+                    
+                    msg = client.messages.create(
+                        from_=from_number,
+                        to=to_number,
+                        body=f"[TEST] {final_message}"
+                    )
+                    
+                    st.success(f"✅ Test gesendet! SID: {msg.sid}")
+                else:
+                    st.error("Twilio nicht konfiguriert")
+            except Exception as e:
+                st.error(f"Fehler: {e}")
+    
+    # Bestätigungsdialog
+    if st.session_state.get('confirm_vielspieler_wa', False):
+        recipient = selected_player or manual_name
+        st.warning(f"⚠️ Nachricht wirklich an **{recipient}** senden?")
+        
+        col_yes, col_no = st.columns(2)
+        with col_yes:
+            if st.button("✅ Ja, senden!", type="primary", use_container_width=True):
+                try:
+                    from twilio.rest import Client
+                    
+                    # Telefonnummer ermitteln
+                    if manual_phone:
+                        phone = manual_phone
+                    else:
+                        # Aus Customers-Sheet laden
+                        customers = loadsheet("customers")
+                        if not customers.empty and 'name' in customers.columns:
+                            player_match = customers[customers['name'].apply(normalize_name) == normalize_name(selected_player)]
+                            if not player_match.empty and 'phone_number' in player_match.columns:
+                                phone = str(player_match.iloc[0]['phone_number'])
+                            else:
+                                st.error(f"Keine Telefonnummer für {selected_player} gefunden")
+                                st.session_state['confirm_vielspieler_wa'] = False
+                                st.stop()
+                        else:
+                            st.error("Customer-Sheet nicht verfügbar")
+                            st.session_state['confirm_vielspieler_wa'] = False
+                            st.stop()
+                    
+                    # Nummer normalisieren
+                    phone = phone.replace(" ", "").replace("-", "")
+                    if not phone.startswith("+"):
+                        phone = "+49" + phone.lstrip("0")
+                    to_number = f"whatsapp:{phone}" if not phone.startswith("whatsapp:") else phone
+                    
+                    # Senden
+                    twilio_conf = st.secrets.get("twilio", {})
+                    client = Client(twilio_conf["account_sid"], twilio_conf["auth_token"])
+                    
+                    msg = client.messages.create(
+                        from_=twilio_conf["whatsapp_from"],
+                        to=to_number,
+                        body=final_message
+                    )
+                    
+                    st.success(f"✅ Gesendet an {recipient}! SID: {msg.sid}")
+                    st.session_state['confirm_vielspieler_wa'] = False
+                    
+                except Exception as e:
+                    st.error(f"Fehler: {e}")
+                    st.session_state['confirm_vielspieler_wa'] = False
+        
+        with col_no:
+            if st.button("❌ Abbrechen", use_container_width=True):
+                st.session_state['confirm_vielspieler_wa'] = False
+                st.rerun()
+    
+    st.markdown("---")
+    
+    # ========================================
+    # VIELSPIELER-ÜBERSICHT
+    # ========================================
+    
+    st.markdown("### 👥 Eure Wellpass-Vielspieler")
+    
+    if vielspieler_list:
+        # Metriken
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("🎯 Vielspieler", len(vielspieler_list), "≥4x/30 Tage")
+        with col2:
+            stammkunden_count = len([v for v in vielspieler_list if counts[counts['Name']==v]['Buchungen'].values[0] >= 8])
+            st.metric("⭐ Stammkunden", stammkunden_count, "≥8x/30 Tage")
+        with col3:
+            top_count = counts['Buchungen'].max() if not counts.empty else 0
+            st.metric("🏆 Top-Spieler", f"{top_count}x", "Buchungen")
+        
+        # Tabelle
+        display_df = counts[counts['Buchungen'] >= 4].head(15).copy()
+        display_df = display_df.sort_values('Buchungen', ascending=False)
+        display_df.index = range(1, len(display_df) + 1)
+        
+        def add_medal(idx):
+            if idx == 1: return "🥇"
+            if idx == 2: return "🥈"
+            if idx == 3: return "🥉"
+            return f"{idx}."
+        
+        display_df['#'] = [add_medal(i) for i in range(1, len(display_df) + 1)]
+        display_df = display_df[['#', 'Name', 'Buchungen']]
+        display_df.columns = ['#', 'Spieler', 'Buchungen']
+        
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            height=min(len(display_df) * 35 + 40, 500)
+        )
+    else:
+        st.info("Keine Vielspieler gefunden (≥4 Wellpass-Buchungen in 30 Tagen)")
+    
+    st.markdown("---")
+    
+    # ========================================
+    # ALLE VORLAGEN ANZEIGEN
+    # ========================================
+    
+    st.markdown("### 📋 Alle Nachrichtenvorlagen")
+    st.caption("Klicke zum Kopieren oder wähle oben zum Senden")
+    
+    for key, tmpl in WHATSAPP_TEMPLATES.items():
         with st.expander(f"{tmpl['icon']} {tmpl['title']}", expanded=False):
             st.code(tmpl['template'], language=None)
-            st.caption(f"Platzhalter: {tmpl['placeholders']}")
+            st.caption(f"Platzhalter: {', '.join(tmpl['placeholders'])}")
 
 
 # ========================================
@@ -3967,6 +4172,6 @@ st.markdown("""
     color: var(--text-secondary, #86868B);
     font-size: 0.75rem;
 ">
-    🏔️ halle11 · v16.1
+    🏔️ halle11 · v16.2
 </div>
 """, unsafe_allow_html=True)
