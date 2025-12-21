@@ -321,10 +321,10 @@ def get_wellpass_wert(for_date: date) -> float:
 # ========================================
 
 def render_header():
-    """Rendert den Header."""
+    """Rendert den stylischen Header mit Logo."""
     st.markdown("""
-        <div class="main-header">
-            <h1>halle11</h1>
+        <div class="main-header animate-in">
+            <h1>🏔️ halle11</h1>
             <div class="subtitle">Padel & Tennis am Berg</div>
         </div>
     """, unsafe_allow_html=True)
@@ -754,10 +754,10 @@ def check_password():
         elif password:
             st.session_state["password_correct"] = False
     
-    # Login Screen
+    # ✅ Stylischer Login-Screen
     st.markdown("""
         <div class="main-header" style="margin-top: 3rem;">
-            <h1>halle11</h1>
+            <h1>🏔️ halle11</h1>
             <div class="subtitle">Padel & Tennis am Berg</div>
         </div>
     """, unsafe_allow_html=True)
@@ -765,17 +765,17 @@ def check_password():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
-            <div style="background: white; padding: 2rem; border-radius: 12px; margin-top: 2rem;">
-                <h3 style="text-align: center; color: #1B5E20; margin-bottom: 1rem;">Anmelden</h3>
+            <div style="background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-top: 2rem;">
+                <h3 style="text-align: center; color: #1B5E20; margin-bottom: 1.5rem;">🔒 Anmelden</h3>
             </div>
         """, unsafe_allow_html=True)
         
-        st.text_input("Passwort", type="password", on_change=entered, key="password", label_visibility="collapsed", placeholder="Passwort eingeben")
+        st.text_input("🔑 Passwort:", type="password", on_change=entered, key="password")
         
         if st.session_state.get("password_correct") == False:
-            render_error_box("Falsches Passwort")
+            render_error_box("😕 Falsches Passwort!")
         
-        st.caption("Nach Login: URL als Lesezeichen speichern für Auto-Login (30 Tage)")
+        render_info_box("Nach dem Login wird ein Token in der URL gespeichert. Speichere die URL als Lesezeichen für automatischen Login! (30 Tage gültig)")
         
         st.markdown("""
             <p style="text-align: center; color: #888; margin-top: 1rem; font-size: 12px;">
@@ -933,7 +933,7 @@ def get_gsheet_client():
         st.error(f"❌ Google Sheets Fehler: {e}")
         return None
 
-@st.cache_data(ttl=600, show_spinner=False)  # 10 min cache to reduce API calls
+@st.cache_data(ttl=900, show_spinner=False)  # 15 min cache to reduce API calls
 def loadsheet(name, cols=None):
     try:
         sheet = get_gsheet_client()
@@ -1394,183 +1394,399 @@ st.set_page_config(
 )
 
 # ========================================
-# CLEAN DESIGN - APPLE STYLE
+# 🎨 HALLE11 DESIGN (THEME-AWARE)
 # ========================================
+
+# Dark Mode Check (vor dem CSS!)
+_dark_mode = st.session_state.get('dark_mode', False)
+
+# CSS Variablen basierend auf Mode
+if _dark_mode:
+    _card_bg = "#262730"
+    _card_border = "#3D3D4D"
+    _text_primary = "#FAFAFA"
+    _text_secondary = "#B0B0B0"
+    _bg_subtle = "#0E1117"
+    _shadow_color = "rgba(0,0,0,0.3)"
+    _shadow_hover = "rgba(0,0,0,0.4)"
+    _app_bg = "#0E1117"
+else:
+    _card_bg = "#FFFFFF"
+    _card_border = "#E0E0E0"
+    _text_primary = "#1A1A1A"
+    _text_secondary = "#666666"
+    _bg_subtle = "#F8FBF8"
+    _shadow_color = "rgba(0,0,0,0.08)"
+    _shadow_hover = "rgba(0,0,0,0.12)"
+    _app_bg = "#F8FBF8"
 
 st.markdown(f"""
 <style>
-    /* Base Colors */
+    /* ===== CSS VARIABLEN ===== */
     :root {{
-        --primary: {COLORS['primary']};
-        --primary-light: {COLORS['primary_light']};
-        --secondary: {COLORS['secondary']};
-        --success: {COLORS['success']};
-        --error: {COLORS['error']};
-        --warning: {COLORS['warning']};
-        --bg: #F5F5F7;
-        --card: #FFFFFF;
-        --text: #1D1D1F;
-        --muted: #86868B;
-        --border: #D2D2D7;
+        --halle11-primary: {COLORS['primary']};
+        --halle11-primary-light: {COLORS['primary_light']};
+        --halle11-secondary: {COLORS['secondary']};
+        --halle11-accent: {COLORS['accent']};
+        --halle11-success: {COLORS['success']};
+        --halle11-error: {COLORS['error']};
+        --halle11-warning: {COLORS['warning']};
+        --card-bg: {_card_bg};
+        --card-border: {_card_border};
+        --text-primary: {_text_primary};
+        --text-secondary: {_text_secondary};
+        --bg-subtle: {_bg_subtle};
+        --shadow-color: {_shadow_color};
+        --shadow-hover: {_shadow_hover};
     }}
     
-    /* Global */
-    .stApp {{ background: var(--bg); }}
-    #MainMenu, footer, header {{ visibility: hidden; }}
+    /* ===== GLOBALE STYLES ===== */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
-    /* Header - Clean */
+    .stApp {{
+        font-family: 'Inter', sans-serif;
+        background: {_app_bg} !important;
+    }}
+    
+    /* ===== HEADER BRANDING (immer grün) ===== */
     .main-header {{
-        background: var(--primary);
-        padding: 1.25rem 1.5rem;
-        border-radius: 12px;
+        background: linear-gradient(135deg, var(--halle11-primary) 0%, var(--halle11-primary-light) 100%);
+        padding: 1.5rem 2rem;
+        border-radius: 16px;
         margin-bottom: 1.5rem;
+        box-shadow: 0 4px 20px rgba(27, 94, 32, 0.15);
         text-align: center;
+        color: white !important;
     }}
+    
     .main-header h1 {{
-        font-size: 1.75rem;
-        font-weight: 600;
+        font-size: 2.5rem;
+        font-weight: 700;
         margin: 0;
         color: white !important;
-    }}
-    .main-header .subtitle {{
-        font-size: 0.875rem;
-        opacity: 0.9;
-        color: white !important;
-        margin-top: 0.25rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
     }}
     
-    /* Cards - Minimal */
+    .main-header .subtitle {{
+        font-size: 1rem;
+        opacity: 0.9;
+        margin-top: 0.3rem;
+        color: white !important;
+    }}
+    
+    /* ===== METRIC CARDS (Theme-aware) ===== */
     .metric-card {{
-        background: var(--card);
-        border-radius: 12px;
-        padding: 1rem;
-        border: 1px solid var(--border);
+        background: var(--card-bg);
+        border-radius: 16px;
+        padding: 1.2rem;
+        box-shadow: 0 2px 12px var(--shadow-color);
+        border: 1px solid var(--card-border);
+        transition: all 0.3s ease;
         text-align: center;
     }}
+    
+    .metric-card:hover {{
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px var(--shadow-hover);
+    }}
+    
+    .metric-card .icon {{
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }}
+    
     .metric-card .value {{
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: var(--text);
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1.2;
     }}
+    
     .metric-card .label {{
-        font-size: 0.7rem;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-top: 0.25rem;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-top: 0.3rem;
     }}
-    .metric-card.total {{ border-top: 3px solid var(--secondary); }}
-    .metric-card.padel {{ border-top: 3px solid #FF5722; }}
-    .metric-card.tennis {{ border-top: 3px solid var(--primary-light); }}
-    .metric-card.wellpass {{ border-top: 3px solid var(--primary); }}
     
-    /* Badges */
-    .status-badge {{
+    .metric-card .delta {{
+        font-size: 0.8rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 20px;
         display: inline-block;
-        padding: 0.2rem 0.6rem;
-        border-radius: 100px;
-        font-size: 0.75rem;
-        font-weight: 500;
+        margin-top: 0.5rem;
     }}
-    .status-badge.success {{ background: rgba(52, 199, 89, 0.15); color: var(--success); }}
-    .status-badge.error {{ background: rgba(255, 59, 48, 0.15); color: var(--error); }}
-    .status-badge.warning {{ background: rgba(255, 149, 0, 0.15); color: var(--warning); }}
     
-    /* Sidebar - Clean Green */
+    .metric-card .delta.positive {{
+        background: rgba(67, 160, 71, 0.15);
+        color: var(--halle11-success);
+    }}
+    
+    .metric-card .delta.negative {{
+        background: rgba(229, 57, 53, 0.15);
+        color: var(--halle11-error);
+    }}
+    
+    /* Spezielle Karten-Farben */
+    .metric-card.total {{ border-top: 4px solid var(--halle11-secondary); }}
+    .metric-card.padel {{ border-top: 4px solid var(--halle11-accent); }}
+    .metric-card.tennis {{ border-top: 4px solid var(--halle11-primary-light); }}
+    .metric-card.wellpass {{ border-top: 4px solid var(--halle11-primary); }}
+    .metric-card.extras {{ border-top: 4px solid #9C27B0; }}
+    
+    /* ===== STATUS BADGES ===== */
+    .status-badge {{
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        color: var(--text-primary);
+    }}
+    
+    .status-badge.success {{
+        background: rgba(67, 160, 71, 0.15);
+        color: var(--halle11-success);
+        border-color: var(--halle11-success);
+    }}
+    
+    .status-badge.error {{
+        background: rgba(229, 57, 53, 0.15);
+        color: var(--halle11-error);
+        border-color: var(--halle11-error);
+    }}
+    
+    .status-badge.warning {{
+        background: rgba(251, 140, 0, 0.15);
+        color: var(--halle11-warning);
+        border-color: var(--halle11-warning);
+    }}
+    
+    /* ===== NAVIGATION ===== */
+    .date-display {{
+        background: var(--card-bg);
+        padding: 0.8rem 2rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px var(--shadow-color);
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: var(--text-primary);
+        border: 1px solid var(--card-border);
+    }}
+    
+    /* ===== BUTTONS ===== */
+    .stButton > button {{
+        border-radius: 12px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }}
+    
+    .stButton > button:hover {{
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px var(--shadow-hover) !important;
+    }}
+    
+    /* ===== EXPANDER ===== */
+    .stExpander {{
+        background: var(--card-bg);
+        border-radius: 12px !important;
+        border: 1px solid var(--card-border) !important;
+        margin-bottom: 0.8rem !important;
+        overflow: hidden;
+    }}
+    
+    .stExpander > div {{
+        padding: 0.8rem !important;
+    }}
+    
+    /* ===== SIDEBAR (immer dunkelgrün) ===== */
     [data-testid="stSidebar"] {{
-        background: var(--primary) !important;
+        background: linear-gradient(180deg, var(--halle11-primary) 0%, #0D3311 100%) !important;
     }}
-    [data-testid="stSidebar"] * {{ color: white !important; }}
-    [data-testid="stSidebar"] .stButton button {{
-        background: var(--secondary) !important;
-        color: #1A1A1A !important;
-        border: none !important;
+    
+    [data-testid="stSidebar"] * {{
+        color: white !important;
     }}
+    
+    [data-testid="stSidebar"] .stMarkdown,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {{
+        color: white !important;
+    }}
+    
     [data-testid="stSidebar"] [data-testid="stFileUploader"] section {{
         background: rgba(255,255,255,0.1) !important;
-        border: 1px dashed rgba(255,255,255,0.4) !important;
-        border-radius: 8px !important;
+        border: 2px dashed rgba(255,255,255,0.4) !important;
+        border-radius: 12px !important;
     }}
     
-    /* Tabs */
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] section:hover {{
+        border-color: rgba(255,255,255,0.8) !important;
+        background: rgba(255,255,255,0.15) !important;
+    }}
+    
+    [data-testid="stSidebar"] .stButton button {{
+        background: var(--halle11-secondary) !important;
+        color: #1A1A1A !important;
+        font-weight: 600 !important;
+        border: none !important;
+    }}
+    
+    /* ===== TABS ===== */
     .stTabs [data-baseweb="tab-list"] {{
-        gap: 4px;
-        background: var(--card);
-        padding: 0.25rem;
-        border-radius: 8px;
-        border: 1px solid var(--border);
+        gap: 8px;
+        background: var(--card-bg);
+        padding: 0.5rem;
+        border-radius: 12px;
+        border: 1px solid var(--card-border);
     }}
+    
     .stTabs [data-baseweb="tab"] {{
-        border-radius: 6px;
-        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
         font-weight: 500;
-        font-size: 0.875rem;
+        color: var(--text-primary);
     }}
+    
     .stTabs [aria-selected="true"] {{
-        background: var(--primary) !important;
+        background: var(--halle11-primary) !important;
         color: white !important;
     }}
     
-    /* Boxes */
+    /* ===== SUCCESS/ERROR BOXES ===== */
     .success-box {{
-        background: rgba(52, 199, 89, 0.1);
-        border-left: 3px solid var(--success);
-        padding: 0.75rem 1rem;
-        border-radius: 6px;
-        margin: 0.5rem 0;
-    }}
-    .error-box {{
-        background: rgba(255, 59, 48, 0.1);
-        border-left: 3px solid var(--error);
-        padding: 0.75rem 1rem;
-        border-radius: 6px;
-        margin: 0.5rem 0;
-    }}
-    .info-box {{
-        background: rgba(27, 94, 32, 0.1);
-        border-left: 3px solid var(--primary);
-        padding: 0.75rem 1rem;
-        border-radius: 6px;
-        margin: 0.5rem 0;
-    }}
-    
-    /* Action Panel */
-    .action-panel {{
-        background: var(--bg);
-        border: 1px solid var(--border);
+        background: rgba(67, 160, 71, 0.15);
+        border-left: 4px solid var(--halle11-success);
+        padding: 1rem 1.5rem;
         border-radius: 8px;
-        padding: 1rem;
-        margin-top: 1rem;
+        margin: 1rem 0;
+        color: var(--text-primary);
     }}
     
-    /* Buttons */
-    .stButton > button {{
-        border-radius: 8px !important;
-        font-weight: 500 !important;
+    .error-box {{
+        background: rgba(229, 57, 53, 0.15);
+        border-left: 4px solid var(--halle11-error);
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+        color: var(--text-primary);
     }}
     
-    /* DataFrames */
-    .stDataFrame {{ border-radius: 8px; overflow: hidden; }}
-    
-    /* Date Display */
-    .date-display {{
-        text-align: center;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: var(--text);
-        padding: 0.5rem;
+    .info-box {{
+        background: rgba(27, 94, 32, 0.15);
+        border-left: 4px solid var(--halle11-primary);
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+        color: var(--text-primary);
     }}
     
-    /* Hide heavy animations */
-    .animate-in {{ animation: none; }}
+    /* ===== DATAFRAME ===== */
+    .stDataFrame {{
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px var(--shadow-color);
+    }}
     
-    /* Confetti placeholder */
+    /* ===== MOBILE RESPONSIVE ===== */
+    @media (max-width: 768px) {{
+        .main-header h1 {{
+            font-size: 1.8rem;
+        }}
+        
+        .metric-card {{
+            padding: 0.8rem;
+        }}
+        
+        .metric-card .value {{
+            font-size: 1.4rem;
+        }}
+        
+        .metric-card .icon {{
+            font-size: 1.5rem;
+        }}
+        
+        .date-display {{
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }}
+    }}
+    
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeIn {{
+        from {{ opacity: 0; transform: translateY(10px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    
+    .animate-in {{
+        animation: fadeIn 0.4s ease-out;
+    }}
+    
+    @keyframes pulse {{
+        0%, 100% {{ transform: scale(1); }}
+        50% {{ transform: scale(1.05); }}
+    }}
+    
+    .pulse {{
+        animation: pulse 2s infinite;
+    }}
+    
+    /* ===== KONFETTI ===== */
     {CONFETTI_CSS}
+    
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar {{
+        width: 8px;
+        height: 8px;
+    }}
+    
+    ::-webkit-scrollbar-track {{
+        background: var(--bg-subtle);
+        border-radius: 4px;
+    }}
+    
+    ::-webkit-scrollbar-thumb {{
+        background: var(--halle11-primary-light);
+        border-radius: 4px;
+    }}
+    
+    ::-webkit-scrollbar-thumb:hover {{
+        background: var(--halle11-primary);
+    }}
 </style>
 
+<!-- Sound & Konfetti JavaScript -->
 <script>
     {WHATSAPP_SOUND_JS}
-    function triggerConfetti() {{ /* minimal */ }}
+    
+    function triggerConfetti() {{
+        const colors = ['#1B5E20', '#FFB300', '#FF5722', '#43A047', '#9C27B0'];
+        for (let i = 0; i < 50; i++) {{
+            setTimeout(() => {{
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                confetti.style.animationDuration = (2 + Math.random() * 2) + 's';
+                document.body.appendChild(confetti);
+                setTimeout(() => confetti.remove(), 4000);
+            }}, i * 30);
+        }}
+    }}
+    
+    // Keep-alive ping every 5 minutes
+    setInterval(function() {{
+        const event = new Event('mousemove');
+        document.dispatchEvent(event);
+        console.log('🏔️ halle11 keep-alive ping');
+    }}, 300000);
 </script>
 """, unsafe_allow_html=True)
 validate_secrets()
@@ -1596,6 +1812,9 @@ if 'corrections_cache_time' not in st.session_state:
 # ✅ NEU: Sound-Einstellung
 if 'sound_enabled' not in st.session_state:
     st.session_state.sound_enabled = True
+# ✅ NEU: Dark Mode Toggle
+if 'dark_mode' not in st.session_state:
+    st.session_state.dark_mode = False
 # ✅ Monatsziel - aus Google Sheets laden (persistent!)
 if 'monthly_goal' not in st.session_state:
     st.session_state.monthly_goal = get_monthly_goal()  # Lädt gespeicherten Wert
@@ -1705,10 +1924,19 @@ with st.sidebar.expander("Einstellungen", expanded=False):
 
 st.sidebar.markdown("---")
 
-p_file = st.sidebar.file_uploader("Playtomic CSV", type=['csv'], key="playtomic")
-c_file = st.sidebar.file_uploader("Checkins CSV", type=['csv'], key="checkins")
+# ✅ DARK MODE TOGGLE
+st.sidebar.markdown("**⚙️ Einstellungen**")
+dark_mode = st.sidebar.toggle("🌙 Dark Mode", value=st.session_state.dark_mode, key="dark_mode_toggle")
+if dark_mode != st.session_state.dark_mode:
+    st.session_state.dark_mode = dark_mode
+    st.rerun()
 
-if st.sidebar.button("Analysieren", use_container_width=True, type="primary") and p_file and c_file:
+st.sidebar.markdown("---")
+
+p_file = st.sidebar.file_uploader("📄 Playtomic CSV", type=['csv'], key="playtomic")
+c_file = st.sidebar.file_uploader("📄 Checkins CSV", type=['csv'], key="checkins")
+
+if st.sidebar.button("🚀 Analysieren", use_container_width=True, type="primary") and p_file and c_file:
     with st.spinner(get_random_padel_message('verarbeite')):
         pdf = parse_playtomic_csv(p_file)
         
@@ -1906,7 +2134,7 @@ if st.sidebar.button("📤 Upload", use_container_width=True) and cust_file:
 # TABS
 # ========================================
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Tag", "Monat", "Spieler", "Prognose", "Vielspieler"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 Tag", "📊 Monat", "👥 Spieler", "🔮 Prognose", "💬 Vielspieler"])
 
 with tab1:
     dates = get_dates()
@@ -1963,6 +2191,9 @@ with tab1:
     
     df = load_snapshot(st.session_state.current_date)
     ci_df = load_checkins_snapshot(st.session_state.current_date)
+    
+    # ✅ EINMAL LADEN für gesamten Tab (Rate Limit Fix!)
+    corrections_df = loadsheet("corrections", ['key','date','behoben','timestamp'])
     
     if df is None or df.empty:
         st.info("🎾 Keine Daten für diesen Tag")
@@ -2061,11 +2292,10 @@ with tab1:
             # Toggle: Nur Probleme anzeigen
             show_only_problems = st.checkbox("Nur Probleme", value=True, key="hide_green_bookings")
             
-            # Lade corrections für behobene Fehler
-            corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
+            # ✅ Verwende bereits geladene corrections (Rate Limit Fix!)
             behoben_keys = set()
-            if not corr.empty and 'key' in corr.columns:
-                behoben_rows = corr[corr['behoben'] == True] if 'behoben' in corr.columns else corr[corr['behoben'] == 'True']
+            if not corrections_df.empty and 'key' in corrections_df.columns:
+                behoben_rows = corrections_df[corrections_df['behoben'] == True] if 'behoben' in corrections_df.columns else corrections_df[corrections_df['behoben'] == 'True']
                 for _, c_row in behoben_rows.iterrows():
                     if pd.notna(c_row.get('key')):
                         behoben_keys.add(str(c_row['key']))
@@ -2247,7 +2477,7 @@ with tab1:
     if not fehler.empty:
         mapping = load_name_mapping()
         rejected_matches = load_rejected_matches()
-        corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
+        corr = corrections_df  # ✅ Verwende bereits geladene corrections
         
         # Count open vs fixed
         open_count = 0
@@ -2264,7 +2494,7 @@ with tab1:
             else:
                 open_count += 1
         
-        st.markdown(f"### Fehler ({open_count} offen · {fixed_count} behoben)")
+        st.markdown(f"### 📋 Fehler ({open_count} offen · {fixed_count} behoben)")
         
         # Dropdown für schnelle Auswahl
         fehler_options = []
@@ -2345,9 +2575,9 @@ with tab1:
     # ✅ OFFENE FEHLER DER LETZTEN 5 TAGE
     st.markdown("---")
     with st.expander("📋 Offene Fehler der letzten 5 Tage", expanded=False):
-        # Lade Buchungen und Corrections
+        # Lade Buchungen (corrections schon geladen)
         all_buchungen = loadsheet("buchungen")
-        all_corrections = loadsheet("corrections", ['key', 'behoben'])
+        all_corrections = corrections_df  # ✅ Verwende bereits geladene corrections
         
         if not all_buchungen.empty and 'analysis_date' in all_buchungen.columns:
             # Letzte 5 Tage berechnen (ohne heute)
@@ -2403,7 +2633,7 @@ with tab1:
                                 st.caption(f"🔴 {f['Name']} | {f['Betrag']} | {f['Zeit']} {f['Sport']}")
                             with col2:
                                 if st.button("✅", key=f"fix_past_{f['_key']}", use_container_width=True):
-                                    corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
+                                    corr = corrections_df.copy()  # ✅ Verwende bereits geladene corrections
                                     if not corr.empty and 'key' in corr.columns:
                                         corr = corr[corr['key'] != f['_key']]
                                     corr = pd.concat([corr, pd.DataFrame([{
@@ -2452,7 +2682,7 @@ with tab1:
 # ========================================
 
 with tab2:
-    st.markdown("### Monat")
+    st.markdown("### 📊 Monat")
     
     today = date.today()
     month_names = {1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April', 5: 'Mai', 6: 'Juni', 7: 'Juli', 8: 'August', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'}
@@ -2677,18 +2907,18 @@ with tab2:
     
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     with col1:
-        st.metric("Gesamt", f"€{gesamt_umsatz:.2f}")
+        st.metric("💰 Gesamt", f"€{gesamt_umsatz:.2f}")
     with col2:
-        st.metric("Padel", f"€{revenue_month['padel']:.2f}")
+        st.metric("🏓 Padel", f"€{revenue_month['padel']:.2f}")
     with col3:
-        st.metric("Tennis", f"€{revenue_month['tennis']:.2f}")
+        st.metric("🎾 Tennis", f"€{revenue_month['tennis']:.2f}")
     with col4:
-        st.metric("Wellpass", f"€{wellpass_revenue_monat:.2f}")
+        st.metric("💳 Wellpass", f"€{wellpass_revenue_monat:.2f}")
     with col5:
-        st.metric("Buchungen", f"{total_buchungen}")
+        st.metric("📊 Buchungen", f"{total_buchungen}")
     with col6:
         fehler_rate = (fehler_gesamt / relevant_buchungen * 100) if relevant_buchungen > 0 else 0
-        st.metric("Fehler", f"{fehler_gesamt}", f"{fehler_rate:.1f}%")
+        st.metric("❌ Fehler", f"{fehler_gesamt}", f"{fehler_rate:.1f}%")
     
     st.markdown("---")
     
@@ -2717,7 +2947,7 @@ with tab2:
 # ========================================
 
 with tab3:
-    st.markdown("### Spieler-Analytics")
+    st.markdown("### 👥 Spieler-Analytics")
     
     # Zeitraum-Auswahl
     col_period, col_info = st.columns([2, 3])
@@ -3004,7 +3234,7 @@ with tab3:
 # ========================================
 
 with tab4:
-    st.markdown("### Prognosen & Kalender")
+    st.markdown("### 🔮 Prognosen & Kalender")
     
     # Lade Daten
     all_buchungen = loadsheet("buchungen")
@@ -3522,6 +3752,6 @@ st.markdown("""
     color: #86868B;
     font-size: 0.75rem;
 ">
-    halle11 · v15
+    halle11 · v16
 </div>
 """, unsafe_allow_html=True)
