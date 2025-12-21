@@ -116,6 +116,7 @@ PRODUCT_TYPES = {
 
 MITARBEITER = {
     'Andy Schneiderhan', 'Andreas Schneiderhan', 'Tanja Schneiderhan', 'Mattia Mauta', 'Marcel Sidorov',
+    'Filip Nadrchal',
     'Spieler 1', 'Spieler 2', 'Spieler 3', 'Spieler 4', 'Playtomic'
 }
 
@@ -320,11 +321,11 @@ def get_wellpass_wert(for_date: date) -> float:
 # ========================================
 
 def render_header():
-    """Rendert den stylischen Header mit Logo."""
+    """Rendert den Header."""
     st.markdown("""
-        <div class="main-header animate-in">
-            <h1>🏔️ halle11</h1>
-            <div class="subtitle">⚡ Famiglia Schneiderhan powered | Padel & Tennis am Berg</div>
+        <div class="main-header">
+            <h1>halle11</h1>
+            <div class="subtitle">Padel & Tennis am Berg</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -753,10 +754,10 @@ def check_password():
         elif password:
             st.session_state["password_correct"] = False
     
-    # ✅ Stylischer Login-Screen
+    # Login Screen
     st.markdown("""
         <div class="main-header" style="margin-top: 3rem;">
-            <h1>🏔️ halle11</h1>
+            <h1>halle11</h1>
             <div class="subtitle">Padel & Tennis am Berg</div>
         </div>
     """, unsafe_allow_html=True)
@@ -764,17 +765,17 @@ def check_password():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("""
-            <div style="background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-top: 2rem;">
-                <h3 style="text-align: center; color: #1B5E20; margin-bottom: 1.5rem;">🔒 Anmelden</h3>
+            <div style="background: white; padding: 2rem; border-radius: 12px; margin-top: 2rem;">
+                <h3 style="text-align: center; color: #1B5E20; margin-bottom: 1rem;">Anmelden</h3>
             </div>
         """, unsafe_allow_html=True)
         
-        st.text_input("🔑 Passwort:", type="password", on_change=entered, key="password")
+        st.text_input("Passwort", type="password", on_change=entered, key="password", label_visibility="collapsed", placeholder="Passwort eingeben")
         
         if st.session_state.get("password_correct") == False:
-            render_error_box("Falsches Passwort!")
+            render_error_box("Falsches Passwort")
         
-        render_info_box("Nach dem Login wird ein Token in der URL gespeichert. Speichere die URL als Lesezeichen für automatischen Login! (30 Tage gültig)")
+        st.caption("Nach Login: URL als Lesezeichen speichern für Auto-Login (30 Tage)")
         
         st.markdown("""
             <p style="text-align: center; color: #888; margin-top: 1rem; font-size: 12px;">
@@ -1393,394 +1394,183 @@ st.set_page_config(
 )
 
 # ========================================
-# 🎨 KOMPLETT NEUES CSS DESIGN (THEME-AWARE)
+# CLEAN DESIGN - APPLE STYLE
 # ========================================
 
 st.markdown(f"""
 <style>
-    /* ===== CSS VARIABLEN FÜR THEME SUPPORT ===== */
+    /* Base Colors */
     :root {{
-        --halle11-primary: {COLORS['primary']};
-        --halle11-primary-light: {COLORS['primary_light']};
-        --halle11-secondary: {COLORS['secondary']};
-        --halle11-accent: {COLORS['accent']};
-        --halle11-success: {COLORS['success']};
-        --halle11-error: {COLORS['error']};
-        --halle11-warning: {COLORS['warning']};
+        --primary: {COLORS['primary']};
+        --primary-light: {COLORS['primary_light']};
+        --secondary: {COLORS['secondary']};
+        --success: {COLORS['success']};
+        --error: {COLORS['error']};
+        --warning: {COLORS['warning']};
+        --bg: #F5F5F7;
+        --card: #FFFFFF;
+        --text: #1D1D1F;
+        --muted: #86868B;
+        --border: #D2D2D7;
     }}
     
-    /* ===== LIGHT MODE (Default) ===== */
-    :root {{
-        --card-bg: #FFFFFF;
-        --card-border: #E0E0E0;
-        --text-primary: #1A1A1A;
-        --text-secondary: #666666;
-        --bg-subtle: #F8FBF8;
-        --shadow-color: rgba(0,0,0,0.08);
-        --shadow-hover: rgba(0,0,0,0.12);
-    }}
+    /* Global */
+    .stApp {{ background: var(--bg); }}
+    #MainMenu, footer, header {{ visibility: hidden; }}
     
-    /* ===== DARK MODE ===== */
-    @media (prefers-color-scheme: dark) {{
-        :root {{
-            --card-bg: #262730;
-            --card-border: #3D3D4D;
-            --text-primary: #FAFAFA;
-            --text-secondary: #B0B0B0;
-            --bg-subtle: #0E1117;
-            --shadow-color: rgba(0,0,0,0.3);
-            --shadow-hover: rgba(0,0,0,0.4);
-        }}
-    }}
-    
-    /* Streamlit Dark Mode Detection */
-    [data-testid="stAppViewContainer"][data-theme="dark"] {{
-        --card-bg: #262730;
-        --card-border: #3D3D4D;
-        --text-primary: #FAFAFA;
-        --text-secondary: #B0B0B0;
-        --bg-subtle: #0E1117;
-        --shadow-color: rgba(0,0,0,0.3);
-        --shadow-hover: rgba(0,0,0,0.4);
-    }}
-    
-    /* ===== GLOBALE STYLES ===== */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    .stApp {{
-        font-family: 'Inter', sans-serif;
-    }}
-    
-    /* ===== HEADER BRANDING (immer grün) ===== */
+    /* Header - Clean */
     .main-header {{
-        background: linear-gradient(135deg, var(--halle11-primary) 0%, var(--halle11-primary-light) 100%);
-        padding: 1.5rem 2rem;
-        border-radius: 16px;
+        background: var(--primary);
+        padding: 1.25rem 1.5rem;
+        border-radius: 12px;
         margin-bottom: 1.5rem;
-        box-shadow: 0 4px 20px rgba(27, 94, 32, 0.15);
         text-align: center;
-        color: white !important;
     }}
-    
     .main-header h1 {{
-        font-size: 2.5rem;
-        font-weight: 700;
+        font-size: 1.75rem;
+        font-weight: 600;
         margin: 0;
         color: white !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
     }}
-    
     .main-header .subtitle {{
-        font-size: 1rem;
+        font-size: 0.875rem;
         opacity: 0.9;
-        margin-top: 0.3rem;
         color: white !important;
+        margin-top: 0.25rem;
     }}
     
-    /* ===== METRIC CARDS (Theme-aware) ===== */
+    /* Cards - Minimal */
     .metric-card {{
-        background: var(--card-bg);
-        border-radius: 16px;
-        padding: 1.2rem;
-        box-shadow: 0 2px 12px var(--shadow-color);
-        border: 1px solid var(--card-border);
-        transition: all 0.3s ease;
+        background: var(--card);
+        border-radius: 12px;
+        padding: 1rem;
+        border: 1px solid var(--border);
         text-align: center;
     }}
-    
-    .metric-card:hover {{
-        transform: translateY(-4px);
-        box-shadow: 0 8px 25px var(--shadow-hover);
-    }}
-    
-    .metric-card .icon {{
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-    }}
-    
     .metric-card .value {{
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        line-height: 1.2;
-    }}
-    
-    .metric-card .label {{
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-        margin-top: 0.3rem;
-    }}
-    
-    .metric-card .delta {{
-        font-size: 0.8rem;
-        padding: 0.2rem 0.5rem;
-        border-radius: 20px;
-        display: inline-block;
-        margin-top: 0.5rem;
-    }}
-    
-    .metric-card .delta.positive {{
-        background: rgba(67, 160, 71, 0.15);
-        color: var(--halle11-success);
-    }}
-    
-    .metric-card .delta.negative {{
-        background: rgba(229, 57, 53, 0.15);
-        color: var(--halle11-error);
-    }}
-    
-    /* Spezielle Karten-Farben (Border-Top bleibt immer sichtbar) */
-    .metric-card.total {{ border-top: 4px solid var(--halle11-secondary); }}
-    .metric-card.padel {{ border-top: 4px solid var(--halle11-accent); }}
-    .metric-card.tennis {{ border-top: 4px solid var(--halle11-primary-light); }}
-    .metric-card.wellpass {{ border-top: 4px solid var(--halle11-primary); }}
-    .metric-card.extras {{ border-top: 4px solid #9C27B0; }}
-    
-    /* ===== STATUS BADGES (Theme-aware) ===== */
-    .status-badge {{
-        display: inline-flex;
-        align-items: center;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 500;
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        color: var(--text-primary);
-    }}
-    
-    .status-badge.success {{
-        background: rgba(67, 160, 71, 0.15);
-        color: var(--halle11-success);
-        border-color: var(--halle11-success);
-    }}
-    
-    .status-badge.error {{
-        background: rgba(229, 57, 53, 0.15);
-        color: var(--halle11-error);
-        border-color: var(--halle11-error);
-    }}
-    
-    .status-badge.warning {{
-        background: rgba(251, 140, 0, 0.15);
-        color: var(--halle11-warning);
-        border-color: var(--halle11-warning);
-    }}
-    
-    /* ===== NAVIGATION (Theme-aware) ===== */
-    .date-display {{
-        background: var(--card-bg);
-        padding: 0.8rem 2rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px var(--shadow-color);
+        font-size: 1.5rem;
         font-weight: 600;
-        font-size: 1.1rem;
-        color: var(--text-primary);
-        border: 1px solid var(--card-border);
+        color: var(--text);
     }}
-    
-    /* ===== BUTTONS ===== */
-    .stButton > button {{
-        border-radius: 12px !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
+    .metric-card .label {{
+        font-size: 0.7rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 0.25rem;
     }}
+    .metric-card.total {{ border-top: 3px solid var(--secondary); }}
+    .metric-card.padel {{ border-top: 3px solid #FF5722; }}
+    .metric-card.tennis {{ border-top: 3px solid var(--primary-light); }}
+    .metric-card.wellpass {{ border-top: 3px solid var(--primary); }}
     
-    .stButton > button:hover {{
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px var(--shadow-hover) !important;
+    /* Badges */
+    .status-badge {{
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 100px;
+        font-size: 0.75rem;
+        font-weight: 500;
     }}
+    .status-badge.success {{ background: rgba(52, 199, 89, 0.15); color: var(--success); }}
+    .status-badge.error {{ background: rgba(255, 59, 48, 0.15); color: var(--error); }}
+    .status-badge.warning {{ background: rgba(255, 149, 0, 0.15); color: var(--warning); }}
     
-    /* ===== EXPANDER (Theme-aware) ===== */
-    .stExpander {{
-        background: var(--card-bg);
-        border-radius: 12px !important;
-        border: 1px solid var(--card-border) !important;
-        margin-bottom: 0.8rem !important;
-        overflow: hidden;
-    }}
-    
-    .stExpander > div {{
-        padding: 0.8rem !important;
-    }}
-    
-    /* ===== SIDEBAR (immer dunkelgrün) ===== */
+    /* Sidebar - Clean Green */
     [data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, var(--halle11-primary) 0%, #0D3311 100%) !important;
+        background: var(--primary) !important;
     }}
-    
-    [data-testid="stSidebar"] * {{
-        color: white !important;
-    }}
-    
-    [data-testid="stSidebar"] .stMarkdown,
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3 {{
-        color: white !important;
-    }}
-    
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] section {{
-        background: rgba(255,255,255,0.1) !important;
-        border: 2px dashed rgba(255,255,255,0.4) !important;
-        border-radius: 12px !important;
-    }}
-    
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] section:hover {{
-        border-color: rgba(255,255,255,0.8) !important;
-        background: rgba(255,255,255,0.15) !important;
-    }}
-    
+    [data-testid="stSidebar"] * {{ color: white !important; }}
     [data-testid="stSidebar"] .stButton button {{
-        background: var(--halle11-secondary) !important;
+        background: var(--secondary) !important;
         color: #1A1A1A !important;
-        font-weight: 600 !important;
         border: none !important;
     }}
+    [data-testid="stSidebar"] [data-testid="stFileUploader"] section {{
+        background: rgba(255,255,255,0.1) !important;
+        border: 1px dashed rgba(255,255,255,0.4) !important;
+        border-radius: 8px !important;
+    }}
     
-    /* ===== TABS (Theme-aware) ===== */
+    /* Tabs */
     .stTabs [data-baseweb="tab-list"] {{
-        gap: 8px;
-        background: var(--card-bg);
-        padding: 0.5rem;
-        border-radius: 12px;
-        border: 1px solid var(--card-border);
-    }}
-    
-    .stTabs [data-baseweb="tab"] {{
+        gap: 4px;
+        background: var(--card);
+        padding: 0.25rem;
         border-radius: 8px;
-        padding: 0.5rem 1.5rem;
-        font-weight: 500;
-        color: var(--text-primary);
+        border: 1px solid var(--border);
     }}
-    
+    .stTabs [data-baseweb="tab"] {{
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        font-size: 0.875rem;
+    }}
     .stTabs [aria-selected="true"] {{
-        background: var(--halle11-primary) !important;
+        background: var(--primary) !important;
         color: white !important;
     }}
     
-    /* ===== SUCCESS/ERROR BOXES (Theme-aware) ===== */
+    /* Boxes */
     .success-box {{
-        background: rgba(67, 160, 71, 0.15);
-        border-left: 4px solid var(--halle11-success);
-        padding: 1rem 1.5rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-        color: var(--text-primary);
+        background: rgba(52, 199, 89, 0.1);
+        border-left: 3px solid var(--success);
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        margin: 0.5rem 0;
     }}
-    
     .error-box {{
-        background: rgba(229, 57, 53, 0.15);
-        border-left: 4px solid var(--halle11-error);
-        padding: 1rem 1.5rem;
+        background: rgba(255, 59, 48, 0.1);
+        border-left: 3px solid var(--error);
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        margin: 0.5rem 0;
+    }}
+    .info-box {{
+        background: rgba(27, 94, 32, 0.1);
+        border-left: 3px solid var(--primary);
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        margin: 0.5rem 0;
+    }}
+    
+    /* Action Panel */
+    .action-panel {{
+        background: var(--bg);
+        border: 1px solid var(--border);
         border-radius: 8px;
-        margin: 1rem 0;
-        color: var(--text-primary);
+        padding: 1rem;
+        margin-top: 1rem;
     }}
     
-    /* ===== DATAFRAME (Theme-aware) ===== */
-    .stDataFrame {{
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 2px 8px var(--shadow-color);
+    /* Buttons */
+    .stButton > button {{
+        border-radius: 8px !important;
+        font-weight: 500 !important;
     }}
     
-    /* ===== MOBILE RESPONSIVE ===== */
-    @media (max-width: 768px) {{
-        .main-header h1 {{
-            font-size: 1.8rem;
-        }}
-        
-        .metric-card {{
-            padding: 0.8rem;
-        }}
-        
-        .metric-card .value {{
-            font-size: 1.4rem;
-        }}
-        
-        .metric-card .icon {{
-            font-size: 1.5rem;
-        }}
-        
-        .date-display {{
-            padding: 0.5rem 1rem;
-            font-size: 0.9rem;
-        }}
+    /* DataFrames */
+    .stDataFrame {{ border-radius: 8px; overflow: hidden; }}
+    
+    /* Date Display */
+    .date-display {{
+        text-align: center;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text);
+        padding: 0.5rem;
     }}
     
-    /* ===== ANIMATIONS ===== */
-    @keyframes fadeIn {{
-        from {{ opacity: 0; transform: translateY(10px); }}
-        to {{ opacity: 1; transform: translateY(0); }}
-    }}
+    /* Hide heavy animations */
+    .animate-in {{ animation: none; }}
     
-    .animate-in {{
-        animation: fadeIn 0.4s ease-out;
-    }}
-    
-    @keyframes pulse {{
-        0%, 100% {{ transform: scale(1); }}
-        50% {{ transform: scale(1.05); }}
-    }}
-    
-    .pulse {{
-        animation: pulse 2s infinite;
-    }}
-    
-    /* ===== KONFETTI ===== */
+    /* Confetti placeholder */
     {CONFETTI_CSS}
-    
-    /* ===== SCROLLBAR (Theme-aware) ===== */
-    ::-webkit-scrollbar {{
-        width: 8px;
-        height: 8px;
-    }}
-    
-    ::-webkit-scrollbar-track {{
-        background: var(--bg-subtle);
-        border-radius: 4px;
-    }}
-    
-    ::-webkit-scrollbar-thumb {{
-        background: var(--halle11-primary-light);
-        border-radius: 4px;
-    }}
-    
-    ::-webkit-scrollbar-thumb:hover {{
-        background: var(--halle11-primary);
-    }}
 </style>
 
-<!-- Sound & Konfetti JavaScript -->
 <script>
     {WHATSAPP_SOUND_JS}
-    
-    function triggerConfetti() {{
-        const colors = ['#1B5E20', '#FFB300', '#FF5722', '#43A047', '#9C27B0'];
-        for (let i = 0; i < 50; i++) {{
-            setTimeout(() => {{
-                const confetti = document.createElement('div');
-                confetti.className = 'confetti';
-                confetti.style.left = Math.random() * 100 + 'vw';
-                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
-                confetti.style.animationDuration = (2 + Math.random() * 2) + 's';
-                document.body.appendChild(confetti);
-                setTimeout(() => confetti.remove(), 4000);
-            }}, i * 30);
-        }}
-    }}
-    
-    // Keep-alive ping every 5 minutes
-    setInterval(function() {{
-        const event = new Event('mousemove');
-        document.dispatchEvent(event);
-        console.log('🏔️ halle11 keep-alive ping');
-    }}, 300000);
+    function triggerConfetti() {{ /* minimal */ }}
 </script>
 """, unsafe_allow_html=True)
 validate_secrets()
@@ -1886,41 +1676,39 @@ if search_query and len(search_query) >= 2:
 st.sidebar.markdown("---")
 
 # ========================================
-# ⚙️ EINSTELLUNGEN
+# EINSTELLUNGEN
 # ========================================
 
-with st.sidebar.expander("⚙️ Einstellungen", expanded=False):
+with st.sidebar.expander("Einstellungen", expanded=False):
     # Sound Toggle
     st.session_state.sound_enabled = st.checkbox(
-        "🔊 Sound bei WhatsApp", 
-        value=st.session_state.sound_enabled,
-        help="Spielt einen Sound wenn WhatsApp gesendet wird"
+        "Sound bei WhatsApp", 
+        value=st.session_state.sound_enabled
     )
     
-    # ✅ Monatsziel aus Google Sheets laden (persistent!)
+    # Monatsziel aus Google Sheets laden
     current_goal = get_monthly_goal()
     new_goal = st.number_input(
-        "🎯 Monatsziel (€)",
+        "Monatsziel (€)",
         min_value=1000,
         max_value=50000,
         value=int(current_goal),
-        step=500,
-        help="Dein Umsatz-Ziel für den Monat (wird gespeichert!)"
+        step=500
     )
     
     # Speichern wenn geändert
     if new_goal != current_goal:
         set_monthly_goal(new_goal)
-        st.success("✅ Ziel gespeichert!")
+        st.success("Gespeichert")
     
     st.session_state.monthly_goal = new_goal
 
 st.sidebar.markdown("---")
 
-p_file = st.sidebar.file_uploader("📁 Playtomic CSV", type=['csv'], key="playtomic")
-c_file = st.sidebar.file_uploader("📁 Checkins CSV", type=['csv'], key="checkins")
+p_file = st.sidebar.file_uploader("Playtomic CSV", type=['csv'], key="playtomic")
+c_file = st.sidebar.file_uploader("Checkins CSV", type=['csv'], key="checkins")
 
-if st.sidebar.button("🚀 Analysieren", use_container_width=True) and p_file and c_file:
+if st.sidebar.button("Analysieren", use_container_width=True, type="primary") and p_file and c_file:
     with st.spinner(get_random_padel_message('verarbeite')):
         pdf = parse_playtomic_csv(p_file)
         
@@ -2118,7 +1906,7 @@ if st.sidebar.button("📤 Upload", use_container_width=True) and cust_file:
 # TABS
 # ========================================
 
-tab1, tab2, tab3, tab4 = st.tabs(["📅 Tag", "📊 Monat", "👥 Spieler", "🔮 Prognose"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Tag", "Monat", "Spieler", "Prognose", "Vielspieler"])
 
 with tab1:
     dates = get_dates()
@@ -2251,11 +2039,11 @@ with tab1:
     checkin_count = len(ci_df) if ci_df is not None else 0
     
     stats_html = f"""
-    <div style="display: flex; flex-wrap: wrap; gap: 0.8rem; justify-content: center; margin: 1.5rem 0;">
-        <span class="status-badge" style="background: #E3F2FD; color: #1565C0;">📊 {len(df)} Buchungen</span>
-        <span class="status-badge" style="background: #FFF3E0; color: #EF6C00;">🎯 {relevant_count} Relevant</span>
-        <span class="status-badge {'error' if fehler_count > 0 else 'success'}">{'🔴' if fehler_count > 0 else '🟢'} {fehler_count} Fehler</span>
-        <span class="status-badge" style="background: #E8F5E9; color: #2E7D32;">✅ {checkin_count} Check-ins</span>
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin: 1rem 0;">
+        <span class="status-badge">{len(df)} Buchungen</span>
+        <span class="status-badge">{relevant_count} Relevant</span>
+        <span class="status-badge {'error' if fehler_count > 0 else 'success'}">{fehler_count} Fehler</span>
+        <span class="status-badge">{checkin_count} Check-ins</span>
     </div>
     """
     st.markdown(stats_html, unsafe_allow_html=True)
@@ -2266,25 +2054,45 @@ with tab1:
     col_left, col_right = st.columns(2)
     
     with col_left:
-        st.markdown("##### 📋 Buchungen (Relevant)")
+        st.markdown("**Buchungen (Relevant)**")
         rv = df[df['Relevant'] == 'Ja'].sort_values('Name').copy()
         
         if not rv.empty:
-            # ✅ Toggle: Nur Probleme anzeigen (alles OK ausblenden)
-            show_only_problems = st.checkbox("🔍 Nur Probleme (Für Marci ❤️)", value=True, key="hide_green_bookings", help="Blendet alle OK-Einträge aus")
+            # Toggle: Nur Probleme anzeigen
+            show_only_problems = st.checkbox("Nur Probleme", value=True, key="hide_green_bookings")
             
-            # Status-Badge vor Namen - ⚪ wird jetzt auch 🟢
+            # Lade corrections für behobene Fehler
+            corr = loadsheet("corrections", ['key','date','behoben','timestamp'])
+            behoben_keys = set()
+            if not corr.empty and 'key' in corr.columns:
+                behoben_rows = corr[corr['behoben'] == True] if 'behoben' in corr.columns else corr[corr['behoben'] == 'True']
+                for _, c_row in behoben_rows.iterrows():
+                    if pd.notna(c_row.get('key')):
+                        behoben_keys.add(str(c_row['key']))
+            
+            # Status-Badge vor Namen - mit Behoben-Check
             def add_status_badge(row):
                 if row['Fehler'] == 'Ja':
-                    return f"🔴 {row['Name']}"
+                    # Prüfe ob bereits behoben
+                    key = f"{row['Name_norm']}_{row['Datum']}_{row['Betrag']}"
+                    if key in behoben_keys:
+                        return f"🟢 {row['Name']}"  # Behoben = grün
+                    else:
+                        return f"🔴 {row['Name']}"  # Offen = rot
                 else:
-                    # Sowohl Check-in OK als auch nicht-relevant = grün
                     return f"🟢 {row['Name']}"
             
-            rv['Spieler'] = rv.apply(add_status_badge, axis=1)
-            rv['_is_problem'] = rv['Fehler'] == 'Ja'
+            # Prüfe ob Problem noch offen (für Filter)
+            def is_open_problem(row):
+                if row['Fehler'] != 'Ja':
+                    return False
+                key = f"{row['Name_norm']}_{row['Datum']}_{row['Betrag']}"
+                return key not in behoben_keys
             
-            # Filtere wenn Toggle aktiv - zeige nur Probleme (rot)
+            rv['Spieler'] = rv.apply(add_status_badge, axis=1)
+            rv['_is_problem'] = rv.apply(is_open_problem, axis=1)
+            
+            # Filtere wenn Toggle aktiv - zeige nur OFFENE Probleme (nicht behobene)
             if show_only_problems:
                 rv_display = rv[rv['_is_problem'] == True].copy()
                 hidden_count = len(rv) - len(rv_display)
@@ -2294,13 +2102,13 @@ with tab1:
             
             # Sport-Icon
             if 'Sport' in rv_display.columns:
-                rv_display['🏆'] = rv_display['Sport'].apply(lambda x: '🎾P' if str(x).upper() == 'PADEL' else ('🎾T' if str(x).upper() == 'TENNIS' else ''))
+                rv_display['S'] = rv_display['Sport'].apply(lambda x: 'P' if str(x).upper() == 'PADEL' else ('T' if str(x).upper() == 'TENNIS' else ''))
             
             display_cols = ['Spieler', 'Betrag']
             if 'Service_Zeit' in rv_display.columns:
                 display_cols.append('Service_Zeit')
-            if '🏆' in rv_display.columns:
-                display_cols.append('🏆')
+            if 'S' in rv_display.columns:
+                display_cols.append('S')
             
             if not rv_display.empty:
                 # Dynamische Höhe - alle Zeilen sichtbar
@@ -2310,24 +2118,24 @@ with tab1:
                 
                 st.dataframe(rv_display[display_cols], use_container_width=True, hide_index=True, height=table_height)
             else:
-                st.success("✅ Alle OK!")
+                st.success("Alle OK!")
             
             # Caption mit Info über ausgeblendete
             if hidden_count > 0:
-                st.caption(f"🟢 {hidden_count} OK ausgeblendet · 🔴 {len(rv_display)} offen")
+                st.caption(f"{hidden_count} OK/behoben ausgeblendet · {len(rv_display)} offen")
             else:
-                st.caption(f"🟢 Check-in OK · 🔴 Fehlt")
+                st.caption("grün = OK/behoben · rot = offen")
         else:
             st.info("Keine relevanten Buchungen")
     
     with col_right:
-        st.markdown("##### ✅ Wellpass Check-ins")
+        st.markdown("**Wellpass Check-ins**")
         
         if ci_df is not None and not ci_df.empty:
             ci_view = ci_df.sort_values('Name').copy()
             
-            # ✅ Toggle: Nur Probleme anzeigen
-            show_only_ci_problems = st.checkbox("🔍 Nur Probleme (Für Marci ❤️)", value=True, key="hide_green_checkins", help="Blendet alle OK-Check-ins aus")
+            # Toggle: Nur Probleme anzeigen
+            show_only_ci_problems = st.checkbox("Nur Probleme", value=True, key="hide_green_checkins")
             
             # Load name mapping for inverse lookup
             mapping = load_name_mapping()
@@ -2396,13 +2204,45 @@ with tab1:
             if hidden_ci_count > 0:
                 st.caption(f"🟢 {hidden_ci_count} OK ausgeblendet · 🔴 {len(ci_display)} ohne Buchung")
             else:
-                st.caption(f"🟢 Buchung vorhanden · 🔴 Keine Buchung gefunden")
+                st.caption(f"Buchung vorhanden = grün · Keine Buchung = rot")
         else:
             st.info("Keine Check-ins")
     
     st.markdown("---")
     
-    # ✅ FEHLER-BEREICH
+    # DOPPELSPIELER - Spieler die heute mehrfach spielen
+    st.markdown("### Mehrfach-Spieler heute")
+    
+    # Zähle Buchungen pro Spieler an diesem Tag
+    player_counts = df[df['Mitarbeiter'] != 'Ja'].groupby('Name').size().reset_index(name='Spiele')
+    doppelspieler = player_counts[player_counts['Spiele'] >= 2].sort_values('Spiele', ascending=False)
+    
+    if not doppelspieler.empty:
+        st.caption(f"{len(doppelspieler)} Spieler mit 2+ Buchungen")
+        
+        for _, row in doppelspieler.iterrows():
+            # Finde alle Buchungen dieses Spielers
+            spieler_buchungen = df[df['Name'] == row['Name']]
+            zeiten = spieler_buchungen['Service_Zeit'].tolist() if 'Service_Zeit' in spieler_buchungen.columns else []
+            zeiten_str = " · ".join([str(z) for z in zeiten if z])
+            
+            # Gesamtbetrag
+            spieler_buchungen['Betrag_num'] = pd.to_numeric(spieler_buchungen['Betrag'], errors='coerce').fillna(0)
+            gesamt = spieler_buchungen['Betrag_num'].sum()
+            
+            col1, col2, col3 = st.columns([3, 1, 1])
+            col1.write(f"**{row['Name']}**")
+            col2.write(f"{row['Spiele']}x")
+            col3.write(f"€{gesamt:.2f}")
+            
+            if zeiten_str:
+                st.caption(f"Zeiten: {zeiten_str}")
+    else:
+        st.caption("Keine Spieler mit mehreren Buchungen heute")
+    
+    st.markdown("---")
+    
+    # FEHLER-BEREICH
     fehler = df[df['Fehler'] == 'Ja'].copy()
     if not fehler.empty:
         mapping = load_name_mapping()
@@ -2424,8 +2264,10 @@ with tab1:
             else:
                 open_count += 1
         
-        st.subheader(f"📋 Fehler-Status ({open_count} offen · {fixed_count} behoben)")
+        st.markdown(f"### Fehler ({open_count} offen · {fixed_count} behoben)")
         
+        # Dropdown für schnelle Auswahl
+        fehler_options = []
         for idx, row in fehler.iterrows():
             key = f"{row['Name_norm']}_{row['Datum']}_{row['Betrag']}"
             is_behoben = False
@@ -2433,58 +2275,72 @@ with tab1:
                 match_corr = corr[corr['key'] == key]
                 if not match_corr.empty:
                     is_behoben = bool(match_corr.iloc[0].get('behoben', False))
-            
-            whatsapp_sent = get_whatsapp_sent_time(row)
-            sport_icon = '🎾P' if str(row.get('Sport', '')).upper() == 'PADEL' else '🎾T'
-            
-            # Status-Icon based on behoben
-            status_icon = "🟢" if is_behoben else "🔴"
-            status_text = "Behoben" if is_behoben else "Offen"
-            
-            with st.expander(f"{status_icon} {row['Name']} | €{row['Betrag']} | {row.get('Service_Zeit', '')} {sport_icon} [{status_text}]", expanded=not is_behoben):
-                col1, col2 = st.columns([2, 1])
-                
-                with col1:
-                    customer = get_customer_data(row['Name'])
-                    if customer:
-                        st.caption(f"📱 {customer['phone_number']} · 📧 {customer['email'][:30]}")
-                    else:
-                        st.caption("⚠️ Nicht im Customer-Sheet")
-                    
-                    if whatsapp_sent:
-                        st.caption(f"✅ WhatsApp: {whatsapp_sent.strftime('%d.%m. %H:%M')}")
-                
-                with col2:
-                    if is_behoben:
-                        # Button to reopen
-                        if st.button("🔄 Wieder öffnen", key=f"reopen_{key}", use_container_width=True):
-                            if not corr.empty and 'key' in corr.columns:
-                                corr = corr[corr['key'] != key]
-                                savesheet(corr, "corrections")
-                            st.rerun()
-                    else:
-                        if st.button("✅ Behoben", key=f"fix_{key}", use_container_width=True):
-                            if not corr.empty and 'key' in corr.columns:
-                                corr = corr[corr['key'] != key]
-                            corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': st.session_state.current_date, 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
-                            savesheet(corr, "corrections")
-                            st.rerun()
-                
-                # Only show matching interface if NOT behoben
-                if not is_behoben:
-                    render_name_matching_interface(row, ci_df, mapping, rejected_matches, fehler)
-                    
-                    st.markdown("---")
-                    col_wa1, col_wa2 = st.columns(2)
-                    with col_wa1:
-                        if st.button("📱 WhatsApp", key=f"wa_{key}", use_container_width=True):
-                            send_wellpass_whatsapp_to_player(row)
-                    with col_wa2:
-                        if st.button("🧪 Test", key=f"test_{key}", use_container_width=True):
-                            send_wellpass_whatsapp_test(row)
+            status = "✓" if is_behoben else "!"
+            fehler_options.append(f"{status} {row['Name']} · €{row['Betrag']} · {row.get('Service_Zeit', '')}")
+        
+        selected = st.selectbox("Fehler auswählen", fehler_options, key="fehler_select", label_visibility="collapsed")
+        selected_idx = fehler_options.index(selected)
+        selected_row = fehler.iloc[selected_idx]
+        
+        key = f"{selected_row['Name_norm']}_{selected_row['Datum']}_{selected_row['Betrag']}"
+        is_behoben = False
+        if not corr.empty and 'key' in corr.columns:
+            match_corr = corr[corr['key'] == key]
+            if not match_corr.empty:
+                is_behoben = bool(match_corr.iloc[0].get('behoben', False))
+        
+        whatsapp_sent = get_whatsapp_sent_time(selected_row)
+        
+        # Action Panel
+        st.markdown(f"""
+            <div class="action-panel">
+                <strong>{selected_row['Name']}</strong> · €{selected_row['Betrag']} · {selected_row.get('Service_Zeit', '')}
+            </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            if is_behoben:
+                st.markdown('<span class="status-badge success">Behoben</span>', unsafe_allow_html=True)
+                if st.button("Wieder öffnen", key=f"reopen_{key}", use_container_width=True):
+                    if not corr.empty and 'key' in corr.columns:
+                        corr = corr[corr['key'] != key]
+                        savesheet(corr, "corrections")
+                    st.rerun()
+            else:
+                if st.button("Behoben", key=f"fix_{key}", use_container_width=True, type="primary"):
+                    if not corr.empty and 'key' in corr.columns:
+                        corr = corr[corr['key'] != key]
+                    corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': st.session_state.current_date, 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
+                    savesheet(corr, "corrections")
+                    st.rerun()
+        
+        with col2:
+            if whatsapp_sent:
+                st.caption(f"WA: {whatsapp_sent.strftime('%d.%m. %H:%M')}")
+            else:
+                if st.button("WhatsApp", key=f"wa_{key}", use_container_width=True):
+                    send_wellpass_whatsapp_to_player(selected_row)
+        
+        with col3:
+            if st.button("Test WA", key=f"test_{key}", use_container_width=True):
+                send_wellpass_whatsapp_test(selected_row)
+        
+        with col4:
+            customer = get_customer_data(selected_row['Name'])
+            if customer:
+                st.caption(f"{customer['phone_number'][:15]}")
+            else:
+                st.caption("Keine Nummer")
+        
+        # Name Matching (nur wenn nicht behoben)
+        if not is_behoben:
+            with st.expander("Name-Zuordnung", expanded=False):
+                render_name_matching_interface(selected_row, ci_df, mapping, rejected_matches, fehler)
     else:
-        render_success_box("Keine offenen Fehler! Por cuatro! 🎉")
-        trigger_confetti()  # 🎊 Konfetti-Animation!
+        render_success_box("Keine offenen Fehler!")
+        trigger_confetti()
     
     # ✅ OFFENE FEHLER DER LETZTEN 5 TAGE
     st.markdown("---")
@@ -2596,7 +2452,7 @@ with tab1:
 # ========================================
 
 with tab2:
-    st.subheader("📊 Monat")
+    st.markdown("### Monat")
     
     today = date.today()
     month_names = {1: 'Januar', 2: 'Februar', 3: 'März', 4: 'April', 5: 'Mai', 6: 'Juni', 7: 'Juli', 8: 'August', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Dezember'}
@@ -2680,44 +2536,159 @@ with tab2:
         status_emoji = "⚠️"
         status_text = f"Noch €{remaining:.0f} nötig"
     
-    st.markdown(f"""
-        <div class="metric-card total" style="margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <span style="font-size: 1.2rem; font-weight: bold;">🎯 Monatsziel</span>
-                <span style="font-size: 1.5rem; font-weight: bold;">€{gesamt_umsatz:.0f} / €{monthly_goal:.0f}</span>
-            </div>
-            <div style="background: var(--card-border); border-radius: 10px; height: 20px; overflow: hidden;">
-                <div style="
-                    width: {progress_pct}%; 
-                    height: 100%; 
-                    background: linear-gradient(90deg, {bar_color}, {COLORS['secondary']});
-                    border-radius: 10px;
-                    transition: width 0.5s ease;
-                "></div>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.85rem;">
-                <span>{status_emoji} {status_text}</span>
-                <span>📈 Prognose: €{projected_total:.0f}</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    # ========================================
+    # 🏔️ BERGSTEIGER-VISUALISIERUNG
+    # ========================================
+    
+    # Berg-Parameter: Ziel = Gipfel (2.962m wie die Zugspitze skaliert)
+    gipfel_hoehe = 2962  # Symbolische Höhe
+    aktuelle_hoehe = int((gesamt_umsatz / monthly_goal) * gipfel_hoehe) if monthly_goal > 0 else 0
+    aktuelle_hoehe = min(aktuelle_hoehe, gipfel_hoehe)
+    
+    # Berg-Profil erstellen (x = Fortschritt, y = Höhe)
+    berg_x = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    berg_y = [0, 400, 850, 1200, 1650, 1950, 2250, 2500, 2750, 2900, gipfel_hoehe]
+    
+    # Fortschritts-Position auf dem Berg
+    progress_x = progress_pct / 100
+    progress_y = aktuelle_hoehe
+    
+    # Erwartete Position (wo man sein sollte)
+    expected_x = expected_pct / 100
+    expected_idx = min(int(expected_x * 10), 10)
+    expected_y = berg_y[expected_idx] if expected_idx < len(berg_y) else gipfel_hoehe
+    
+    fig_berg = go.Figure()
+    
+    # Berg-Silhouette (gefüllt)
+    fig_berg.add_trace(go.Scatter(
+        x=berg_x, y=berg_y,
+        fill='tozeroy',
+        fillcolor='rgba(27, 94, 32, 0.3)',
+        line=dict(color=COLORS['primary'], width=3),
+        name='Berg',
+        hoverinfo='skip'
+    ))
+    
+    # Schnee auf dem Gipfel
+    fig_berg.add_trace(go.Scatter(
+        x=[0.85, 0.9, 0.95, 1.0],
+        y=[2600, 2900, 2950, gipfel_hoehe],
+        fill='toself',
+        fillcolor='rgba(255, 255, 255, 0.8)',
+        line=dict(color='white', width=1),
+        name='Schnee',
+        hoverinfo='skip'
+    ))
+    
+    # Aktueller Stand (Wanderer)
+    fig_berg.add_trace(go.Scatter(
+        x=[progress_x],
+        y=[progress_y],
+        mode='markers+text',
+        marker=dict(size=20, color=COLORS['secondary'], symbol='triangle-up'),
+        text=['⛷️'],
+        textposition='top center',
+        textfont=dict(size=24),
+        name=f'Aktuell: €{gesamt_umsatz:.0f}',
+        hovertemplate=f'<b>Aktueller Stand</b><br>€{gesamt_umsatz:.0f}<br>{aktuelle_hoehe}m<extra></extra>'
+    ))
+    
+    # Gipfel-Markierung
+    fig_berg.add_trace(go.Scatter(
+        x=[1.0],
+        y=[gipfel_hoehe + 100],
+        mode='markers+text',
+        marker=dict(size=15, color=COLORS['error'], symbol='star'),
+        text=[f'🏔️ Ziel: €{monthly_goal:.0f}'],
+        textposition='top center',
+        textfont=dict(size=12, color=COLORS['primary']),
+        name='Gipfel',
+        hovertemplate=f'<b>Monatsziel</b><br>€{monthly_goal:.0f}<br>{gipfel_hoehe}m<extra></extra>'
+    ))
+    
+    # Erwartete Position (gestrichelte Linie)
+    if days_passed > 0 and days_passed < days_in_month:
+        fig_berg.add_trace(go.Scatter(
+            x=[expected_x, expected_x],
+            y=[0, expected_y],
+            mode='lines',
+            line=dict(color='gray', width=2, dash='dash'),
+            name=f'Soll: Tag {days_passed}',
+            hovertemplate=f'<b>Sollstand Tag {days_passed}</b><br>€{(monthly_goal * expected_pct / 100):.0f}<extra></extra>'
+        ))
+    
+    # Layout
+    fig_berg.update_layout(
+        title=dict(
+            text=f"🏔️ Aufstieg zum Monatsziel · {aktuelle_hoehe}m von {gipfel_hoehe}m",
+            font=dict(size=16)
+        ),
+        xaxis=dict(
+            title="Fortschritt",
+            tickformat='.0%',
+            range=[-0.05, 1.1],
+            showgrid=False
+        ),
+        yaxis=dict(
+            title="Höhenmeter",
+            ticksuffix='m',
+            range=[0, gipfel_hoehe + 300],
+            showgrid=True,
+            gridcolor='rgba(0,0,0,0.1)'
+        ),
+        height=350,
+        showlegend=False,
+        margin=dict(t=50, b=50, l=50, r=30),
+        plot_bgcolor='rgba(245, 250, 255, 0.5)'
+    )
+    
+    # Annotations für Status
+    status_color = COLORS['success'] if progress_pct >= 100 else (COLORS['primary'] if on_track else COLORS['warning'])
+    
+    if progress_pct >= 100:
+        fig_berg.add_annotation(
+            x=0.5, y=gipfel_hoehe + 200,
+            text="🎉 GIPFEL ERREICHT!",
+            showarrow=False,
+            font=dict(size=18, color=COLORS['success']),
+            bgcolor='white',
+            bordercolor=COLORS['success'],
+            borderwidth=2,
+            borderpad=10
+        )
+    
+    st.plotly_chart(fig_berg, use_container_width=True)
+    
+    # Kompakte Stats unter dem Berg
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Höhe", f"{aktuelle_hoehe}m", f"{progress_pct:.0f}%")
+    with col2:
+        verbleibend = gipfel_hoehe - aktuelle_hoehe
+        st.metric("Bis Gipfel", f"{verbleibend}m", f"€{remaining:.0f}")
+    with col3:
+        st.metric("Prognose", f"€{projected_total:.0f}", "Monatsende")
+    with col4:
+        tempo = "🟢 Im Plan" if on_track else "🟡 Aufholen"
+        st.metric("Status", tempo, f"Tag {days_passed}/{days_in_month}")
     
     st.markdown("---")
     
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     with col1:
-        st.metric("💰 Gesamt", f"€{gesamt_umsatz:.2f}")
+        st.metric("Gesamt", f"€{gesamt_umsatz:.2f}")
     with col2:
-        st.metric("🎾 Padel", f"€{revenue_month['padel']:.2f}")
+        st.metric("Padel", f"€{revenue_month['padel']:.2f}")
     with col3:
-        st.metric("🎾 Tennis", f"€{revenue_month['tennis']:.2f}")
+        st.metric("Tennis", f"€{revenue_month['tennis']:.2f}")
     with col4:
-        st.metric("💳 Wellpass", f"€{wellpass_revenue_monat:.2f}")
+        st.metric("Wellpass", f"€{wellpass_revenue_monat:.2f}")
     with col5:
-        st.metric("📊 Buchungen", f"{total_buchungen}")
+        st.metric("Buchungen", f"{total_buchungen}")
     with col6:
         fehler_rate = (fehler_gesamt / relevant_buchungen * 100) if relevant_buchungen > 0 else 0
-        st.metric("❌ Fehler", f"{fehler_gesamt}", f"{fehler_rate:.1f}%")
+        st.metric("Fehler", f"{fehler_gesamt}", f"{fehler_rate:.1f}%")
     
     st.markdown("---")
     
@@ -2746,13 +2717,13 @@ with tab2:
 # ========================================
 
 with tab3:
-    st.markdown("### 👥 Spieler-Analytics")
+    st.markdown("### Spieler-Analytics")
     
     # Zeitraum-Auswahl
     col_period, col_info = st.columns([2, 3])
     with col_period:
         analysis_days = st.selectbox(
-            "📅 Zeitraum",
+            "Zeitraum",
             options=[7, 14, 30, 60, 90],
             index=2,
             format_func=lambda x: f"Letzte {x} Tage",
@@ -3033,7 +3004,7 @@ with tab3:
 # ========================================
 
 with tab4:
-    st.markdown("### 🔮 Prognosen & Kalender")
+    st.markdown("### Prognosen & Kalender")
     
     # Lade Daten
     all_buchungen = loadsheet("buchungen")
@@ -3430,35 +3401,127 @@ with tab4:
                 """, unsafe_allow_html=True)
             
             if return_rate >= 40:
-                render_success_box(f"Sehr gute Wiederkehrrate! {return_rate:.0f}% der Spieler kommen wieder 🎉")
+                render_success_box(f"Sehr gute Wiederkehrrate! {return_rate:.0f}% kommen wieder")
             elif return_rate >= 25:
-                st.info(f"📊 Solide Wiederkehrrate von {return_rate:.0f}%")
+                st.info(f"Solide Wiederkehrrate von {return_rate:.0f}%")
             else:
-                st.warning(f"⚠️ Niedrige Wiederkehrrate ({return_rate:.0f}%) - mehr Kundenbindung nötig?")
+                st.warning(f"Niedrige Wiederkehrrate ({return_rate:.0f}%)")
         else:
             st.info("Noch nicht genug Daten für Wiederkehr-Analyse (mind. 2 Wochen)")
+
+
+# ========================================
+# TAB 5: VIELSPIELER
+# ========================================
+
+with tab5:
+    st.markdown("### Vielspieler")
+    
+    # Vielspieler finden
+    buchungen = loadsheet("buchungen")
+    if not buchungen.empty:
+        buchungen['date_obj'] = pd.to_datetime(buchungen['analysis_date'], errors='coerce').dt.date
+        cutoff = date.today() - timedelta(days=30)
+        recent = buchungen[(buchungen['date_obj'] >= cutoff) & (buchungen['Mitarbeiter'] != 'Ja')]
+        
+        if not recent.empty:
+            counts = recent.groupby('Name').size().reset_index(name='Buchungen')
+            vielspieler = counts[counts['Buchungen'] >= 4].sort_values('Buchungen', ascending=False)
+            stammkunden = counts[counts['Buchungen'] >= 8].sort_values('Buchungen', ascending=False)
+            
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Vielspieler", len(vielspieler), "≥4x/Monat")
+            col2.metric("Stammkunden", len(stammkunden), "≥8x/Monat")
+            col3.metric("Top-Spieler", vielspieler.iloc[0]['Buchungen'] if not vielspieler.empty else 0, "Buchungen")
+            
+            st.markdown("---")
+            
+            if not vielspieler.empty:
+                st.markdown("**Top 10 Vielspieler**")
+                for i, (_, row) in enumerate(vielspieler.head(10).iterrows()):
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    col1.write(f"{i+1}. {row['Name']}")
+                    col2.write(f"{row['Buchungen']}x")
+                    col3.button("WhatsApp", key=f"viel_{row['Name']}", disabled=True)
+    
+    st.markdown("---")
+    st.markdown("### Nachrichtenvorlagen")
+    st.caption("Kopiere und personalisiere diese Nachrichten für WhatsApp oder E-Mail")
+    
+    # Alle 20 Nachrichtenvorlagen
+    templates = {
+        "Danke & Wertschätzung": [
+            ("Kaffee-Gutschein", 
+             "Hallo {name}, danke für deine Treue bei halle11! ☕ Dein nächster Kaffee geht auf uns. Zeig diese Nachricht einfach an der Theke. Bis bald am Berg!"),
+            ("Getränk gratis", 
+             "Hey {name}! Als Dankeschön für deine {anzahl} Buchungen: Dein nächstes Getränk ist frei! Einfach diese Nachricht zeigen. Wir freuen uns auf dich!"),
+            ("VIP-Buchung", 
+             "Hallo {name}, als einer unserer treuesten Spieler kannst du ab sofort 24 Stunden früher buchen! Einfach bei der Buchung 'Stammkunde' angeben."),
+            ("Geburtstag", 
+             "Happy Birthday, {name}! 🎉 Zu deinem Ehrentag schenken wir dir 20% auf deine nächste Buchung. Code: BIRTHDAY{jahr}. Feier schön!"),
+            ("Jubiläum", 
+             "Wow {name}! Du hast gerade deine {anzahl}. Buchung bei uns gemacht! 🏆 Das muss gefeiert werden - dein nächstes Spiel geht auf uns!"),
+        ],
+        "Feedback & Bewertung": [
+            ("Google Review", 
+             "Hallo {name}, du bist einer unserer aktivsten Spieler - deine Meinung zählt! Würdest du uns mit einer Google-Bewertung unterstützen? 🙏 [Link] Danke dir!"),
+            ("Feedback", 
+             "Hey {name}, kurze Frage: Was können wir bei halle11 besser machen? Dein Feedback hilft uns enorm. Antworte einfach auf diese Nachricht!"),
+            ("Weiterempfehlung", 
+             "Hallo {name}! Kennst du jemanden, der Padel oder Tennis ausprobieren möchte? Bring einen Freund mit - ihr bekommt beide 10% Rabatt! Code: FRIENDS"),
+            ("Instagram", 
+             "Hey {name}! Poste eine Story von deinem nächsten Match und tagge @halle11 - wir haben eine kleine Überraschung für dich! 📸"),
+        ],
+        "Events & Community": [
+            ("Turnier-Einladung", 
+             "Hallo {name}! Am [Datum] findet unser nächstes Turnier statt. Als Vielspieler bekommst du VIP-Zugang und bevorzugte Anmeldung. Bist du dabei?"),
+            ("Gratis Training", 
+             "Hey {name}, Lust auf ein kostenloses Schnupper-Training mit unserem Coach? Als Dankeschön für deine Treue - meld dich einfach!"),
+            ("Partner-Suche", 
+             "Hallo {name}! Wir haben gesehen, dass du oft alleine buchst. Sollen wir dir einen passenden Spielpartner vermitteln? Sag uns dein Level!"),
+            ("Liga-Info", 
+             "Hey {name}! Unsere neue Padel-Liga startet im [Monat]. Mit deinem Spielniveau wärst du perfekt dabei. Interesse? Antwort genügt!"),
+            ("Saisonkarte", 
+             "Hallo {name}, bei {anzahl} Buchungen im Monat lohnt sich unsere Saisonkarte! Spare 15% auf alle Buchungen. Soll ich dir Infos schicken?"),
+        ],
+        "Reaktivierung": [
+            ("Vermissen", 
+             "Hey {name}, lang nicht gesehen! ⛰️ Wir vermissen dich am Berg. Hier ist ein 15% Comeback-Rabatt für dich: COMEBACK15. Gültig 14 Tage!"),
+            ("Neues Feature", 
+             "Hallo {name}! Kennst du schon unsere neuen [Feature/Courts/Zeiten]? Perfekter Grund für ein Comeback! Wir freuen uns auf dich."),
+            ("Wetter-Push", 
+             "Hey {name}, morgen wird perfektes Wetter am Berg! ☀️ Wir haben noch Courts frei. Spontan Lust auf ein Match?"),
+        ],
+        "Upselling": [
+            ("Schläger-Test", 
+             "Hallo {name}! Wir haben neue HEAD-Schläger zum Testen da. Als Stammkunde kannst du sie kostenlos ausprobieren. Interesse?"),
+            ("Bälle-Abo", 
+             "Hey {name}, immer frische Bälle für nur €5/Monat? Mit unserem Ball-Abo spielst du immer mit Top-Material. Soll ich aktivieren?"),
+            ("Privat-Training", 
+             "Hallo {name}! Bereit für das nächste Level? Unser Coach bietet 1:1 Training an. Als Stammkunde: Erste Stunde 20% günstiger!"),
+        ],
+    }
+    
+    for category, messages in templates.items():
+        with st.expander(f"{category} ({len(messages)} Vorlagen)"):
+            for title, template in messages:
+                st.markdown(f"**{title}**")
+                st.code(template, language=None)
+                st.markdown("---")
 
 
 # ========================================
 # FOOTER
 # ========================================
 
-st.markdown(f"""
+st.markdown("""
 <div style="
     margin-top: 3rem; 
-    padding: 2rem; 
-    background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['primary_light']} 100%);
-    border-radius: 16px;
+    padding: 1.5rem; 
     text-align: center;
-    color: white;
+    color: #86868B;
+    font-size: 0.75rem;
 ">
-    <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🏔️🎾</div>
-    <div style="font-weight: 600; font-size: 1.1rem;">halle11</div>
-    <div style="font-size: 0.85rem; opacity: 0.9; margin-top: 0.3rem;">
-        v13.1 Ultimate Edition · ⚡ Famiglia Schneiderhan powered
-    </div>
-    <div style="font-size: 0.75rem; opacity: 0.7; margin-top: 0.5rem;">
-        🎾 Padel & Tennis am Berg · Made with ❤️
-    </div>
+    halle11 · v15
 </div>
 """, unsafe_allow_html=True)
