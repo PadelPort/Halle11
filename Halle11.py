@@ -375,28 +375,18 @@ def play_sound():
 
 
 def render_success_box(message: str):
-    """Rendert eine Erfolgs-Box."""
-    st.markdown(f'<div class="success-box">✅ {message}</div>', unsafe_allow_html=True)
+    """Rendert eine Erfolgs-Box - nutzt native st.success."""
+    st.success(f"✅ {message}")
 
 
 def render_error_box(message: str):
-    """Rendert eine Fehler-Box."""
-    st.markdown(f'<div class="error-box">❌ {message}</div>', unsafe_allow_html=True)
+    """Rendert eine Fehler-Box - nutzt native st.error."""
+    st.error(f"❌ {message}")
 
 
 def render_info_box(message: str):
-    """Rendert eine Info-Box."""
-    st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, {COLORS['secondary']}20, {COLORS['primary']}10);
-            border-left: 4px solid {COLORS['secondary']};
-            padding: 1rem;
-            border-radius: 8px;
-            margin: 0.5rem 0;
-        ">
-            💡 {message}
-        </div>
-    """, unsafe_allow_html=True)
+    """Rendert eine Info-Box - nutzt native st.info."""
+    st.info(f"💡 {message}")
 
 
 # ========================================
@@ -2606,132 +2596,136 @@ with tab1:
     
     st.markdown("---")
     
-    # FEHLER-BEREICH
+    # FEHLER-BEREICH (wie Padel Port - funktioniert!)
     fehler = df[df['Fehler'] == 'Ja'].copy()
     if not fehler.empty:
         mapping = load_name_mapping()
         rejected_matches = load_rejected_matches()
-        corr = corrections_df  # ✅ Verwende bereits geladene corrections
+        corr = corrections_df
         
-        # Count open vs fixed und Liste vorbereiten
-        open_count = 0
-        fixed_count = 0
-        fehler_list = []
-        
+        # Fehler-Daten sammeln
+        fehler_data = []
         for idx, row in fehler.iterrows():
             key = f"{row['Name_norm']}_{row['Datum']}_{row['Betrag']}"
+            
             is_behoben = False
             if not corr.empty and 'key' in corr.columns:
                 match_corr = corr[corr['key'] == key]
                 if not match_corr.empty:
                     is_behoben = is_behoben_value(match_corr.iloc[0].get('behoben'))
-            if is_behoben:
-                fixed_count += 1
-            else:
-                open_count += 1
             
-            whatsapp_sent = get_whatsapp_sent_time(row)
-            fehler_list.append({
-                'row': row,
-                'key': key,
-                'is_behoben': is_behoben,
-                'whatsapp_sent': whatsapp_sent
+            whatsapp_sent_time = get_whatsapp_sent_time(row)
+            customer_data = get_customer_data(row['Name'])
+            
+            telefon = 'N/A'
+            if customer_data and customer_data.get('phone_number') and customer_data['phone_number'] != 'Nicht verfügbar':
+                tel = str(customer_data['phone_number'])
+                telefon = tel[:15] + '...' if len(tel) > 15 else tel
+            
+            fehler_data.append({
+                'Status': '✅' if is_behoben else '🔴',
+                'Name': row['Name'],
+                'Betrag': f"€{row['Betrag']}",
+                'Zeit': row.get('Service_Zeit', 'N/A'),
+                'Telefon': telefon,
+                'WhatsApp': '✅ ' + whatsapp_sent_time.strftime("%d.%m. %H:%M") if whatsapp_sent_time else '❌',
+                '_key': key,
+                '_row': row,
+                '_is_behoben': is_behoben
             })
         
-        st.markdown(f"### 📋 Fehler ({open_count} offen · {fixed_count} behoben)")
+        # Zähle offen/behoben
+        open_count = len([f for f in fehler_data if f['Status'] == '🔴'])
+        fixed_count = len([f for f in fehler_data if f['Status'] == '✅'])
         
-        # Alle Fehler als Liste anzeigen
-        for fehler_item in fehler_list:
-            row = fehler_item['row']
-            key = fehler_item['key']
-            is_behoben = fehler_item['is_behoben']
-            whatsapp_sent = fehler_item['whatsapp_sent']
-            
-            # Status-Farbe bestimmen
-            if is_behoben:
-                border_color = COLORS['success']
-                status_text = "✅ Behoben"
+        st.subheader(f"📋 Fehler ({open_count} offen · {fixed_count} behoben)")
+        
+        # DataFrame-Übersicht
+        fehler_df = pd.DataFrame(fehler_data)
+        st.dataframe(
+            fehler_df[['Status', 'Name', 'Betrag', 'Zeit', 'Telefon', 'WhatsApp']],
+            use_container_width=True,
+            hide_index=True,
+            height=min(len(fehler_df) * 35 + 38, 400)
+        )
+        
+        st.markdown("---")
+        st.markdown("### 🔧 Fehler bearbeiten")
+        
+        # Selectbox zur Auswahl
+        fehler_options = [f"{f['Status']} {f['Name']} | {f['Betrag']} | {f['Zeit']}" for f in fehler_data]
+        
+        selected_fehler_name = st.selectbox(
+            "Fehler auswählen:",
+            options=fehler_options,
+            key="fehler_selector"
+        )
+        
+        selected_idx = fehler_options.index(selected_fehler_name)
+        selected_fehler = fehler_data[selected_idx]
+        
+        row = selected_fehler['_row']
+        key = selected_fehler['_key']
+        is_behoben = selected_fehler['_is_behoben']
+        whatsapp_sent_time = get_whatsapp_sent_time(row)
+        
+        st.markdown("---")
+        
+        # Info-Bereich
+        col1, col2, col3 = st.columns([2, 2, 1])
+        
+        with col1:
+            st.markdown(f"**🧑 {row['Name']}**")
+            st.caption(f"⏰ {row.get('Service_Zeit', 'N/A')} | 💰 €{row['Betrag']} | 📅 {row['Datum']}")
+            if whatsapp_sent_time:
+                st.caption(f"✅ WhatsApp: {whatsapp_sent_time.strftime('%d.%m. %H:%M')}")
+        
+        with col2:
+            customer_data = get_customer_data(row['Name'])
+            if customer_data:
+                st.caption(f"📱 {customer_data.get('phone_number', 'N/A')}")
+                email = customer_data.get('email', 'N/A')
+                st.caption(f"📧 {email[:30]}..." if len(str(email)) > 30 else f"📧 {email}")
             else:
-                border_color = COLORS['error']
-                status_text = "❌ Offen"
-            
-            # Fehler-Karte
-            st.markdown(f"""
-                <div style="
-                    background: var(--card-bg, #1e1e1e);
-                    border: 1px solid var(--card-border, #333);
-                    border-left: 4px solid {border_color};
-                    border-radius: 8px;
-                    padding: 0.8rem 1rem;
-                    margin-bottom: 0.5rem;
-                ">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                        <div>
-                            <strong style="color: var(--text-primary, #fff);">{row['Name']}</strong>
-                            <span style="color: var(--text-secondary, #aaa); margin-left: 0.5rem;">
-                                €{row['Betrag']} · {row.get('Service_Zeit', '')}
-                            </span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            {'<span style="color: #4CAF50; font-size: 0.8rem;">WA ✓</span>' if whatsapp_sent else ''}
-                            <span style="
-                                background: {border_color};
-                                color: white;
-                                padding: 0.2rem 0.5rem;
-                                border-radius: 4px;
-                                font-size: 0.75rem;
-                            ">{status_text}</span>
-                        </div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Action Buttons in Expander
-            with st.expander(f"⚙️ Aktionen für {row['Name']}", expanded=False):
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    if is_behoben:
-                        if st.button("🔄 Wieder öffnen", key=f"reopen_{key}", use_container_width=True):
-                            if not corr.empty and 'key' in corr.columns:
-                                corr = corr[corr['key'] != key]
-                                savesheet(corr, "corrections")
-                            loadsheet.clear()
-                            st.rerun()
-                    else:
-                        if st.button("✅ Behoben", key=f"fix_{key}", use_container_width=True, type="primary"):
-                            if not corr.empty and 'key' in corr.columns:
-                                corr = corr[corr['key'] != key]
-                            corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': st.session_state.current_date, 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
-                            savesheet(corr, "corrections")
-                            loadsheet.clear()
-                            st.rerun()
-                
-                with col2:
-                    if whatsapp_sent:
-                        st.caption(f"WA: {whatsapp_sent.strftime('%d.%m. %H:%M')}")
-                    else:
-                        if st.button("📱 WhatsApp", key=f"wa_{key}", use_container_width=True):
-                            send_wellpass_whatsapp_to_player(row)
-                
-                with col3:
-                    if st.button("🧪 Test WA", key=f"test_{key}", use_container_width=True):
-                        send_wellpass_whatsapp_test(row)
-                
-                with col4:
-                    customer = get_customer_data(row['Name'])
-                    if customer:
-                        st.caption(f"📞 {customer['phone_number'][:15]}")
-                    else:
-                        st.caption("Keine Nummer")
-                
-                # Name Matching (nur wenn nicht behoben)
-                if not is_behoben:
-                    st.markdown("---")
-                    st.markdown("**🔗 Name-Zuordnung:**")
-                    render_name_matching_interface(row, ci_df, mapping, rejected_matches, fehler)
+                st.caption("⚠️ Nicht im Customer-Sheet")
+        
+        with col3:
+            if not is_behoben:
+                if st.button("✅ Behoben", key=f"fix_{key}", type="primary", use_container_width=True):
+                    if not corr.empty and 'key' in corr.columns:
+                        corr = corr[corr['key'] != key]
+                    corr = pd.concat([corr, pd.DataFrame([{
+                        'key': key,
+                        'date': st.session_state.current_date,
+                        'behoben': True,
+                        'timestamp': datetime.now().isoformat()
+                    }])], ignore_index=True)
+                    savesheet(corr, "corrections")
+                    loadsheet.clear()
+                    st.rerun()
+            else:
+                if st.button("🔄 Öffnen", key=f"reopen_{key}", use_container_width=True):
+                    if not corr.empty and 'key' in corr.columns:
+                        corr = corr[corr['key'] != key]
+                        savesheet(corr, "corrections")
+                    loadsheet.clear()
+                    st.rerun()
+        
+        # WhatsApp Buttons
+        col_wa1, col_wa2 = st.columns(2)
+        with col_wa1:
+            if st.button("📱 WhatsApp senden", key=f"wa_{key}", use_container_width=True, disabled=whatsapp_sent_time is not None):
+                send_wellpass_whatsapp_to_player(row)
+        with col_wa2:
+            if st.button("🧪 Test WA", key=f"test_{key}", use_container_width=True):
+                send_wellpass_whatsapp_test(row)
+        
+        # Name-Matching (nur wenn nicht behoben)
+        if not is_behoben:
+            with st.expander("🔗 Name-Zuordnung", expanded=False):
+                render_name_matching_interface(row, ci_df, mapping, rejected_matches, fehler)
     else:
-        render_success_box("Keine offenen Fehler!")
+        st.success("✅ Keine offenen Fehler! 🎉")
         trigger_confetti()
     
     # ✅ OFFENE FEHLER DER LETZTEN 5 TAGE
@@ -2930,64 +2924,23 @@ with tab2:
         status_text = f"Noch €{remaining:.0f}"
     
     # ========================================
-    # 📊 FORTSCHRITTSBALKEN (wie Padel Port)
+    # 📊 FORTSCHRITTSBALKEN (native Streamlit)
     # ========================================
     
-    st.markdown(f"### 🎯 Monatsziel: €{monthly_goal:,.0f}")
+    st.subheader(f"🎯 Monatsziel: €{monthly_goal:,.0f}")
     
-    # Fortschrittsbalken mit HTML/CSS
-    st.markdown(f"""
-        <div style="
-            background: var(--card-bg, #f0f0f0);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin: 1rem 0;
-            border: 1px solid var(--card-border, #e0e0e0);
-        ">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                <span style="font-weight: 600; color: var(--text-primary, #1a1a1a);">
-                    €{gesamt_umsatz:,.2f} von €{monthly_goal:,.0f}
-                </span>
-                <span style="font-weight: 600; color: {bar_color};">
-                    {status_emoji} {progress_pct:.1f}%
-                </span>
-            </div>
-            
-            <!-- Fortschrittsbalken -->
-            <div style="
-                background: var(--card-border, #e0e0e0);
-                border-radius: 10px;
-                height: 24px;
-                position: relative;
-                overflow: hidden;
-            ">
-                <!-- Soll-Linie (wo man sein sollte) -->
-                <div style="
-                    position: absolute;
-                    left: {expected_pct}%;
-                    top: 0;
-                    bottom: 0;
-                    width: 3px;
-                    background: #666;
-                    z-index: 2;
-                "></div>
-                
-                <!-- Aktueller Fortschritt -->
-                <div style="
-                    background: linear-gradient(90deg, {COLORS['primary']} 0%, {bar_color} 100%);
-                    height: 100%;
-                    width: {progress_pct}%;
-                    border-radius: 10px;
-                    transition: width 0.5s ease;
-                "></div>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary, #666);">
-                <span>Tag {days_passed} von {days_in_month}</span>
-                <span>Soll: {expected_pct:.0f}% | Ist: {progress_pct:.0f}%</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    # Info-Zeile
+    col_info1, col_info2 = st.columns(2)
+    with col_info1:
+        st.write(f"**€{gesamt_umsatz:,.2f}** von €{monthly_goal:,.0f}")
+    with col_info2:
+        st.write(f"**{status_emoji} {progress_pct:.1f}%** - {status_text}")
+    
+    # Native Streamlit Progress Bar
+    st.progress(min(progress_pct / 100, 1.0))
+    
+    # Info unter dem Balken
+    st.caption(f"Tag {days_passed} von {days_in_month} | Soll: {expected_pct:.0f}% | Ist: {progress_pct:.0f}%")
     
     # Kompakte Stats
     col1, col2, col3, col4 = st.columns(4)
@@ -3081,11 +3034,7 @@ with tab3:
             with col_info:
                 unique_players = period_data['Name'].nunique()
                 total_bookings = len(period_data)
-                st.markdown(f"""
-                    <div class="status-badge" style="margin-top: 1.8rem;">
-                        📊 {total_bookings} Buchungen von {unique_players} Spielern
-                    </div>
-                """, unsafe_allow_html=True)
+                st.info(f"📊 {total_bookings} Buchungen von {unique_players} Spielern")
             
             st.markdown("---")
             
@@ -3151,39 +3100,18 @@ with tab3:
                 (player_stats['Relevante'] >= 2)
             ]
             
-            st.markdown(f"""
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin: 1rem 0;">
-                <div class="metric-card animate-in">
-                    <div class="icon">👥</div>
-                    <div class="value">{len(player_stats)}</div>
-                    <div class="label">Spieler gesamt</div>
-                </div>
-                <div class="metric-card animate-in" style="animation-delay: 0.1s;">
-                    <div class="icon">🏠</div>
-                    <div class="value">{len(stammkunden)}</div>
-                    <div class="label">Stammkunden</div>
-                    <div class="delta positive">≥4 Buchungen</div>
-                </div>
-                <div class="metric-card animate-in" style="animation-delay: 0.2s;">
-                    <div class="icon">💳</div>
-                    <div class="value">{len(wellpass_players)}</div>
-                    <div class="label">Wellpass-Spieler</div>
-                    <div class="delta positive">Ø {avg_bookings_wellpass:.1f} Spiele</div>
-                </div>
-                <div class="metric-card animate-in" style="animation-delay: 0.3s;">
-                    <div class="icon">💰</div>
-                    <div class="value">{len(normal_players)}</div>
-                    <div class="label">Vollzahler</div>
-                    <div class="delta positive">Ø {avg_bookings_normal:.1f} Spiele</div>
-                </div>
-                <div class="metric-card animate-in" style="animation-delay: 0.4s;">
-                    <div class="icon">⚠️</div>
-                    <div class="value">{len(problem_players)}</div>
-                    <div class="label">Problem-Spieler</div>
-                    <div class="delta negative">&lt;50% Check-in</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Metriken als native Streamlit-Komponenten
+            col1, col2, col3, col4, col5 = st.columns(5)
+            with col1:
+                st.metric("👥 Spieler gesamt", len(player_stats))
+            with col2:
+                st.metric("🏠 Stammkunden", len(stammkunden), "≥4 Buchungen")
+            with col3:
+                st.metric("💳 Wellpass", len(wellpass_players), f"Ø {avg_bookings_wellpass:.1f} Spiele")
+            with col4:
+                st.metric("💰 Vollzahler", len(normal_players), f"Ø {avg_bookings_normal:.1f} Spiele")
+            with col5:
+                st.metric("⚠️ Problem-Spieler", len(problem_players), "<50% Check-in")
             
             st.markdown("---")
             
@@ -3307,12 +3235,7 @@ with tab3:
                 gesamt_umsatz = player_stats['Umsatz'].sum()
                 stammkunden_anteil = (stammkunden_umsatz / gesamt_umsatz * 100) if gesamt_umsatz > 0 else 0
                 
-                st.markdown(f"""
-                    <div class="success-box">
-                        💡 <strong>{len(stammkunden)} Stammkunden</strong> ({len(stammkunden)/len(player_stats)*100:.0f}% aller Spieler) 
-                        generieren <strong>€{stammkunden_umsatz:.2f}</strong> ({stammkunden_anteil:.0f}% des Umsatzes)
-                    </div>
-                """, unsafe_allow_html=True)
+                st.success(f"💡 **{len(stammkunden)} Stammkunden** ({len(stammkunden)/len(player_stats)*100:.0f}% aller Spieler) generieren **€{stammkunden_umsatz:.2f}** ({stammkunden_anteil:.0f}% des Umsatzes)")
             else:
                 st.info("Noch keine Stammkunden im gewählten Zeitraum")
             
@@ -3611,13 +3534,7 @@ with tab4:
         
         # Wochen-Summe Prognose
         weekly_expected = weekday_avg['Ø_Umsatz'].sum()
-        st.markdown(f"""
-            <div class="metric-card total" style="max-width: 300px; margin: 1rem auto;">
-                <div class="icon">📊</div>
-                <div class="value">€{weekly_expected:.0f}</div>
-                <div class="label">Erwarteter Wochen-Umsatz</div>
-            </div>
-        """, unsafe_allow_html=True)
+        st.metric("📊 Erwarteter Wochen-Umsatz", f"€{weekly_expected:.0f}")
         
         st.markdown("---")
         
@@ -3710,29 +3627,11 @@ with tab4:
             
             col_r1, col_r2, col_r3 = st.columns(3)
             with col_r1:
-                st.markdown(f"""
-                    <div class="metric-card animate-in">
-                        <div class="icon">📅</div>
-                        <div class="value">{len(last_week_players)}</div>
-                        <div class="label">Spieler letzte Woche</div>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.metric("📅 Spieler letzte Woche", len(last_week_players))
             with col_r2:
-                st.markdown(f"""
-                    <div class="metric-card animate-in">
-                        <div class="icon">🔄</div>
-                        <div class="value">{len(returning)}</div>
-                        <div class="label">Davon wiedergekommen</div>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.metric("🔄 Davon wiedergekommen", len(returning))
             with col_r3:
-                st.markdown(f"""
-                    <div class="metric-card animate-in" style="border-top: 4px solid {'#4CAF50' if return_rate >= 30 else '#FF5722'};">
-                        <div class="icon">📈</div>
-                        <div class="value">{return_rate:.0f}%</div>
-                        <div class="label">Wiederkehrrate</div>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.metric("📈 Wiederkehrrate", f"{return_rate:.0f}%")
             
             if return_rate >= 40:
                 render_success_box(f"Sehr gute Wiederkehrrate! {return_rate:.0f}% kommen wieder")
