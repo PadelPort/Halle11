@@ -117,13 +117,16 @@ PRODUCT_TYPES = {
 MITARBEITER = {
     'Andy Schneiderhan', 'Andreas Schneiderhan', 'Tanja Schneiderhan', 'Mattia Mauta', 'Marcel Sidorov',
     'Filip Nadrchal',
-    'Spieler 1', 'Spieler 2', 'Spieler 3', 'Spieler 4', 'Playtomic'
+    'Spieler 1', 'Spieler 2', 'Spieler 3', 'Spieler 4', 'Playtomic',
+    # Familie/Bekannte - keine Wellpass-Pflicht
+    'Janik Otto', 'Tim Otto', 'Wencke Kern', 'Thorsten Kern'
 }
 
 # ✅ Diese Check-ins sind IMMER grün (Familie/Bekannte ohne Wellpass-Pflicht)
 ALWAYS_GREEN_CHECKINS = {
     'marcel sidorov', 'mattia niklas mauta', 'thomas otto', 'andrea otto',
-    'andreas schneiderhan', 'ludmila sidorov', 'tanja schneiderhan'
+    'andreas schneiderhan', 'ludmila sidorov', 'tanja schneiderhan',
+    'janik otto', 'tim otto', 'wencke kern', 'thorsten kern'
 }
 
 # 🎾 PADEL-WÖRTERBUCH FÜR EASTER EGGS
@@ -1072,6 +1075,7 @@ def invalidate_corrections_cache():
 # REVENUE-FUNKTION MIT TENNIS/PADEL SPLIT
 # ========================================
 
+@st.cache_data(ttl=900, show_spinner=False)  # 15 min cache
 def get_revenue_from_raw(date_str=None, start_date=None, end_date=None):
     """Berechnet Umsätze aus Raw-Daten mit Tennis/Padel Unterscheidung."""
     raw_data = loadsheet("playtomic_raw")
@@ -1126,28 +1130,36 @@ def get_revenue_from_raw(date_str=None, start_date=None, end_date=None):
     
     return revenue
 
+@st.cache_data(ttl=300, show_spinner=False)  # 5 min cache
 def get_unique_wellpass_checkins(date_str):
+    """Cached unique check-in count for a date."""
     checkins = loadsheet("checkins")
     if checkins.empty or 'analysis_date' not in checkins.columns:
         return 0
     day_checkins = checkins[checkins['analysis_date'] == date_str]
     return day_checkins['Name_norm'].nunique() if not day_checkins.empty else 0
 
+@st.cache_data(ttl=300, show_spinner=False)  # 5 min cache
 def get_dates():
+    """Cached list of available dates."""
     buchungen = loadsheet("buchungen", ['analysis_date'])
     if buchungen.empty or 'analysis_date' not in buchungen.columns:
         return []
     dates = [datetime.strptime(d, "%Y-%m-%d").date() for d in buchungen['analysis_date'].unique()]
     return sorted(dates, reverse=True)
 
+@st.cache_data(ttl=300, show_spinner=False)  # 5 min cache
 def load_snapshot(date_str):
+    """Cached snapshot for a specific date."""
     buchungen = loadsheet("buchungen", ['analysis_date'])
     if buchungen.empty or 'analysis_date' not in buchungen.columns:
         return None
     data = buchungen[buchungen['analysis_date'] == date_str]
     return data if not data.empty else None
 
+@st.cache_data(ttl=300, show_spinner=False)  # 5 min cache
 def load_checkins_snapshot(date_str):
+    """Cached check-ins for a specific date."""
     checkins = loadsheet("checkins", ['analysis_date'])
     if checkins.empty or 'analysis_date' not in checkins.columns:
         return None
@@ -1159,7 +1171,9 @@ def load_checkins_snapshot(date_str):
 # NAME-MATCHING FUNKTIONEN
 # ========================================
 
+@st.cache_data(ttl=120, show_spinner=False)  # 2 min cache (shorter because data changes)
 def load_name_mapping():
+    """Cached name mapping loading."""
     try:
         df = loadsheet("name_mapping")
         if not df.empty and 'buchung_name' in df.columns and 'checkin_name' in df.columns:
@@ -1193,8 +1207,11 @@ def save_name_mapping(mapping):
                 'timestamp': datetime.now().isoformat(), 'confirmed_by': 'legacy'
             })
     savesheet(pd.DataFrame(data), "name_mapping")
+    load_name_mapping.clear()  # Clear cache after save
 
+@st.cache_data(ttl=120, show_spinner=False)  # 2 min cache
 def load_rejected_matches():
+    """Cached rejected matches loading."""
     try:
         df = loadsheet("rejected_matches")
         if not df.empty:
@@ -1208,12 +1225,14 @@ def save_rejected_match(buchung_name, checkin_name):
     new_row = pd.DataFrame([{'buchung_name': buchung_name, 'checkin_name': checkin_name, 'timestamp': datetime.now().isoformat()}])
     df = pd.concat([df, new_row], ignore_index=True)
     savesheet(df, "rejected_matches")
+    load_rejected_matches.clear()  # Clear cache after save
 
 def remove_rejected_match(buchung_name, checkin_name):
     df = loadsheet("rejected_matches", cols=['buchung_name', 'checkin_name', 'timestamp'])
     if not df.empty:
         df = df[~((df['buchung_name'] == buchung_name) & (df['checkin_name'] == checkin_name))]
         savesheet(df, "rejected_matches")
+        load_rejected_matches.clear()  # Clear cache after save
 
 def check_initials_match(name1, name2):
     def get_initials(name):
@@ -1959,9 +1978,10 @@ if 'corrections_cache_time' not in st.session_state:
 # ✅ NEU: Sound-Einstellung
 if 'sound_enabled' not in st.session_state:
     st.session_state.sound_enabled = True
-# ✅ NEU: Dark Mode Toggle
+# ✅ Dark Mode - IMMER AN (stabiler)
 if 'dark_mode' not in st.session_state:
-    st.session_state.dark_mode = False
+    st.session_state.dark_mode = True
+st.session_state.dark_mode = True  # Force Dark Mode
 # ✅ Monatsziel - aus Google Sheets laden (persistent!)
 if 'monthly_goal' not in st.session_state:
     st.session_state.monthly_goal = get_monthly_goal()  # Lädt gespeicherten Wert
@@ -2071,12 +2091,8 @@ with st.sidebar.expander("Einstellungen", expanded=False):
 
 st.sidebar.markdown("---")
 
-# ✅ DARK MODE TOGGLE
-st.sidebar.markdown("**⚙️ Einstellungen**")
-dark_mode = st.sidebar.toggle("🌙 Dark Mode", value=st.session_state.dark_mode, key="dark_mode_toggle")
-if dark_mode != st.session_state.dark_mode:
-    st.session_state.dark_mode = dark_mode
-    st.rerun()
+# Dark Mode ist immer aktiv (stabiler)
+st.sidebar.caption("🌙 Dark Mode aktiv")
 
 st.sidebar.markdown("---")
 
@@ -2590,87 +2606,6 @@ with tab1:
     
     st.markdown("---")
     
-    # ========================================
-    # MEHRFACH-SPIELER - Spieler die heute mehrfach spielen
-    # ========================================
-    st.markdown("### 🔄 Mehrfach-Spieler heute")
-    
-    # Filtere Stornierungen aus (falls vorhanden)
-    df_aktiv = df.copy()
-    if 'Refund id' in df_aktiv.columns:
-        df_aktiv = df_aktiv[df_aktiv['Refund id'].isin(['-', '', None]) | df_aktiv['Refund id'].isna()]
-    if 'Payment status' in df_aktiv.columns:
-        df_aktiv = df_aktiv[df_aktiv['Payment status'] != 'Refund']
-    
-    # Nur Nicht-Mitarbeiter
-    df_spieler = df_aktiv[df_aktiv['Mitarbeiter'] != 'Ja'].copy()
-    
-    # Zähle Buchungen pro Spieler an diesem Tag
-    player_counts = df_spieler.groupby('Name').size().reset_index(name='Spiele')
-    doppelspieler = player_counts[player_counts['Spiele'] >= 2].sort_values('Spiele', ascending=False)
-    
-    if not doppelspieler.empty:
-        st.caption(f"{len(doppelspieler)} Spieler mit 2+ Buchungen (Stornierungen ausgenommen)")
-        
-        for _, row in doppelspieler.iterrows():
-            # Finde alle Buchungen dieses Spielers
-            spieler_buchungen = df_spieler[df_spieler['Name'] == row['Name']].copy()
-            zeiten = spieler_buchungen['Service_Zeit'].tolist() if 'Service_Zeit' in spieler_buchungen.columns else []
-            zeiten_str = " · ".join([str(z) for z in zeiten if z])
-            
-            # Einzelne Beträge berechnen
-            spieler_buchungen['Betrag_num'] = pd.to_numeric(
-                spieler_buchungen['Betrag'].astype(str).str.replace(',', '.'), 
-                errors='coerce'
-            ).fillna(0)
-            einzelne_betraege = spieler_buchungen['Betrag_num'].tolist()
-            gesamt = sum(einzelne_betraege)
-            
-            # Prüfe ob Wellpass-relevant (Betrag < 6€)
-            is_wellpass = any(b > 0 and b < 6 for b in einzelne_betraege)
-            wellpass_badge = "💳" if is_wellpass else ""
-            
-            # Anzeige
-            st.markdown(f"""
-                <div style="
-                    background: var(--card-bg, white);
-                    border: 1px solid var(--card-border, #e0e0e0);
-                    border-left: 4px solid {'#1B5E20' if is_wellpass else '#666'};
-                    border-radius: 8px;
-                    padding: 0.8rem 1rem;
-                    margin-bottom: 0.5rem;
-                ">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 600; color: var(--text-primary, #1a1a1a);">
-                            {wellpass_badge} {row['Name']}
-                        </span>
-                        <div>
-                            <span style="
-                                background: {COLORS['primary']};
-                                color: white;
-                                padding: 0.2rem 0.6rem;
-                                border-radius: 12px;
-                                font-size: 0.85rem;
-                                margin-right: 0.5rem;
-                            ">{row['Spiele']}x</span>
-                            <span style="font-weight: 600; color: var(--text-primary, #1a1a1a);">
-                                €{gesamt:.2f}
-                            </span>
-                        </div>
-                    </div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary, #666); margin-top: 0.3rem;">
-                        Beträge: {' + '.join([f'€{b:.2f}' for b in einzelne_betraege])}
-                    </div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary, #666);">
-                        Zeiten: {zeiten_str if zeiten_str else 'N/A'}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.caption("Keine Spieler mit mehreren Buchungen heute")
-    
-    st.markdown("---")
-    
     # FEHLER-BEREICH
     fehler = df[df['Fehler'] == 'Ja'].copy()
     if not fehler.empty:
@@ -2678,9 +2613,11 @@ with tab1:
         rejected_matches = load_rejected_matches()
         corr = corrections_df  # ✅ Verwende bereits geladene corrections
         
-        # Count open vs fixed
+        # Count open vs fixed und Liste vorbereiten
         open_count = 0
         fixed_count = 0
+        fehler_list = []
+        
         for idx, row in fehler.iterrows():
             key = f"{row['Name_norm']}_{row['Datum']}_{row['Betrag']}"
             is_behoben = False
@@ -2692,83 +2629,107 @@ with tab1:
                 fixed_count += 1
             else:
                 open_count += 1
+            
+            whatsapp_sent = get_whatsapp_sent_time(row)
+            fehler_list.append({
+                'row': row,
+                'key': key,
+                'is_behoben': is_behoben,
+                'whatsapp_sent': whatsapp_sent
+            })
         
         st.markdown(f"### 📋 Fehler ({open_count} offen · {fixed_count} behoben)")
         
-        # Dropdown für schnelle Auswahl
-        fehler_options = []
-        for idx, row in fehler.iterrows():
-            key = f"{row['Name_norm']}_{row['Datum']}_{row['Betrag']}"
-            is_behoben = False
-            if not corr.empty and 'key' in corr.columns:
-                match_corr = corr[corr['key'] == key]
-                if not match_corr.empty:
-                    is_behoben = is_behoben_value(match_corr.iloc[0].get('behoben'))
-            status = "✓" if is_behoben else "!"
-            fehler_options.append(f"{status} {row['Name']} · €{row['Betrag']} · {row.get('Service_Zeit', '')}")
-        
-        selected = st.selectbox("Fehler auswählen", fehler_options, key="fehler_select", label_visibility="collapsed")
-        selected_idx = fehler_options.index(selected)
-        selected_row = fehler.iloc[selected_idx]
-        
-        key = f"{selected_row['Name_norm']}_{selected_row['Datum']}_{selected_row['Betrag']}"
-        is_behoben = False
-        if not corr.empty and 'key' in corr.columns:
-            match_corr = corr[corr['key'] == key]
-            if not match_corr.empty:
-                is_behoben = is_behoben_value(match_corr.iloc[0].get('behoben'))
-        
-        whatsapp_sent = get_whatsapp_sent_time(selected_row)
-        
-        # Action Panel
-        st.markdown(f"""
-            <div class="action-panel">
-                <strong>{selected_row['Name']}</strong> · €{selected_row['Betrag']} · {selected_row.get('Service_Zeit', '')}
-            </div>
-        """, unsafe_allow_html=True)
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
+        # Alle Fehler als Liste anzeigen
+        for fehler_item in fehler_list:
+            row = fehler_item['row']
+            key = fehler_item['key']
+            is_behoben = fehler_item['is_behoben']
+            whatsapp_sent = fehler_item['whatsapp_sent']
+            
+            # Status-Farbe bestimmen
             if is_behoben:
-                st.markdown('<span class="status-badge success">Behoben</span>', unsafe_allow_html=True)
-                if st.button("Wieder öffnen", key=f"reopen_{key}", use_container_width=True):
-                    if not corr.empty and 'key' in corr.columns:
-                        corr = corr[corr['key'] != key]
-                        savesheet(corr, "corrections")
-                    loadsheet.clear()  # ✅ Cache leeren damit Liste aktualisiert!
-                    st.rerun()
+                border_color = COLORS['success']
+                status_text = "✅ Behoben"
             else:
-                if st.button("Behoben", key=f"fix_{key}", use_container_width=True, type="primary"):
-                    if not corr.empty and 'key' in corr.columns:
-                        corr = corr[corr['key'] != key]
-                    corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': st.session_state.current_date, 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
-                    savesheet(corr, "corrections")
-                    loadsheet.clear()  # ✅ Cache leeren damit Liste aktualisiert!
-                    st.rerun()
-        
-        with col2:
-            if whatsapp_sent:
-                st.caption(f"WA: {whatsapp_sent.strftime('%d.%m. %H:%M')}")
-            else:
-                if st.button("WhatsApp", key=f"wa_{key}", use_container_width=True):
-                    send_wellpass_whatsapp_to_player(selected_row)
-        
-        with col3:
-            if st.button("Test WA", key=f"test_{key}", use_container_width=True):
-                send_wellpass_whatsapp_test(selected_row)
-        
-        with col4:
-            customer = get_customer_data(selected_row['Name'])
-            if customer:
-                st.caption(f"{customer['phone_number'][:15]}")
-            else:
-                st.caption("Keine Nummer")
-        
-        # Name Matching (nur wenn nicht behoben)
-        if not is_behoben:
-            with st.expander("Name-Zuordnung", expanded=False):
-                render_name_matching_interface(selected_row, ci_df, mapping, rejected_matches, fehler)
+                border_color = COLORS['error']
+                status_text = "❌ Offen"
+            
+            # Fehler-Karte
+            st.markdown(f"""
+                <div style="
+                    background: var(--card-bg, #1e1e1e);
+                    border: 1px solid var(--card-border, #333);
+                    border-left: 4px solid {border_color};
+                    border-radius: 8px;
+                    padding: 0.8rem 1rem;
+                    margin-bottom: 0.5rem;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        <div>
+                            <strong style="color: var(--text-primary, #fff);">{row['Name']}</strong>
+                            <span style="color: var(--text-secondary, #aaa); margin-left: 0.5rem;">
+                                €{row['Betrag']} · {row.get('Service_Zeit', '')}
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            {'<span style="color: #4CAF50; font-size: 0.8rem;">WA ✓</span>' if whatsapp_sent else ''}
+                            <span style="
+                                background: {border_color};
+                                color: white;
+                                padding: 0.2rem 0.5rem;
+                                border-radius: 4px;
+                                font-size: 0.75rem;
+                            ">{status_text}</span>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # Action Buttons in Expander
+            with st.expander(f"⚙️ Aktionen für {row['Name']}", expanded=False):
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    if is_behoben:
+                        if st.button("🔄 Wieder öffnen", key=f"reopen_{key}", use_container_width=True):
+                            if not corr.empty and 'key' in corr.columns:
+                                corr = corr[corr['key'] != key]
+                                savesheet(corr, "corrections")
+                            loadsheet.clear()
+                            st.rerun()
+                    else:
+                        if st.button("✅ Behoben", key=f"fix_{key}", use_container_width=True, type="primary"):
+                            if not corr.empty and 'key' in corr.columns:
+                                corr = corr[corr['key'] != key]
+                            corr = pd.concat([corr, pd.DataFrame([{'key': key, 'date': st.session_state.current_date, 'behoben': True, 'timestamp': datetime.now().isoformat()}])], ignore_index=True)
+                            savesheet(corr, "corrections")
+                            loadsheet.clear()
+                            st.rerun()
+                
+                with col2:
+                    if whatsapp_sent:
+                        st.caption(f"WA: {whatsapp_sent.strftime('%d.%m. %H:%M')}")
+                    else:
+                        if st.button("📱 WhatsApp", key=f"wa_{key}", use_container_width=True):
+                            send_wellpass_whatsapp_to_player(row)
+                
+                with col3:
+                    if st.button("🧪 Test WA", key=f"test_{key}", use_container_width=True):
+                        send_wellpass_whatsapp_test(row)
+                
+                with col4:
+                    customer = get_customer_data(row['Name'])
+                    if customer:
+                        st.caption(f"📞 {customer['phone_number'][:15]}")
+                    else:
+                        st.caption("Keine Nummer")
+                
+                # Name Matching (nur wenn nicht behoben)
+                if not is_behoben:
+                    st.markdown("---")
+                    st.markdown("**🔗 Name-Zuordnung:**")
+                    render_name_matching_interface(row, ci_df, mapping, rejected_matches, fehler)
     else:
         render_success_box("Keine offenen Fehler!")
         trigger_confetti()
@@ -3132,37 +3093,43 @@ with tab3:
             # SPIELER-STATISTIKEN BERECHNEN
             # ========================================
             
-            # Gruppiere nach Spieler
-            player_stats = period_data.groupby('Name').agg({
-                'Name_norm': 'first',
-                'Betrag': lambda x: pd.to_numeric(x, errors='coerce').sum(),
-                'Fehler': lambda x: (x == 'Ja').sum(),
-                'Relevant': lambda x: (x == 'Ja').sum(),
-                'Check-in': lambda x: (x == 'Ja').sum(),
-                'analysis_date': 'count'  # Anzahl Buchungen
-            }).reset_index(drop=True)
+            # Gruppiere nach Spieler - sichere Methode ohne iloc[0] Problem
+            if period_data.empty or 'Name' not in period_data.columns:
+                # Leere DataFrame wenn keine Daten
+                player_stats = pd.DataFrame(columns=['Name', 'Buchungen', 'Umsatz', 'Relevante', 'Mit_Checkin', 'Fehler', 'Ist_Wellpass', 'Checkin_Quote', 'Pro_Woche'])
+            else:
+                # Sichere Aggregation ohne lambda mit iloc
+                stats_list = []
+                for name, group in period_data.groupby('Name'):
+                    if len(group) == 0:
+                        continue
+                    stats_list.append({
+                        'Name': name,
+                        'Buchungen': len(group),
+                        'Umsatz': pd.to_numeric(group['Betrag'], errors='coerce').sum(),
+                        'Relevante': (group['Relevant'] == 'Ja').sum(),
+                        'Mit_Checkin': (group['Check-in'] == 'Ja').sum(),
+                        'Fehler': (group['Fehler'] == 'Ja').sum(),
+                        'Ist_Wellpass': (group['Relevant'] == 'Ja').any()
+                    })
+                
+                if stats_list:
+                    player_stats = pd.DataFrame(stats_list)
+                else:
+                    player_stats = pd.DataFrame(columns=['Name', 'Buchungen', 'Umsatz', 'Relevante', 'Mit_Checkin', 'Fehler', 'Ist_Wellpass'])
             
-            # Neu berechnen mit korrekten Spaltennamen
-            player_stats = period_data.groupby('Name').apply(
-                lambda g: pd.Series({
-                    'Name': g['Name'].iloc[0],
-                    'Buchungen': len(g),
-                    'Umsatz': pd.to_numeric(g['Betrag'], errors='coerce').sum(),
-                    'Relevante': (g['Relevant'] == 'Ja').sum(),
-                    'Mit_Checkin': (g['Check-in'] == 'Ja').sum(),
-                    'Fehler': (g['Fehler'] == 'Ja').sum(),
-                    'Ist_Wellpass': ((g['Relevant'] == 'Ja').sum() > 0)
-                })
-            ).reset_index(drop=True)
-            
-            # Check-in Quote berechnen
-            player_stats['Checkin_Quote'] = (
-                player_stats['Mit_Checkin'] / player_stats['Relevante'].replace(0, 1) * 100
-            ).round(1)
-            
-            # Spiele pro Woche
-            weeks = max(analysis_days / 7, 1)
-            player_stats['Pro_Woche'] = (player_stats['Buchungen'] / weeks).round(1)
+            # Check-in Quote berechnen (nur wenn Daten vorhanden)
+            if not player_stats.empty and 'Relevante' in player_stats.columns:
+                player_stats['Checkin_Quote'] = (
+                    player_stats['Mit_Checkin'] / player_stats['Relevante'].replace(0, 1) * 100
+                ).round(1)
+                
+                # Spiele pro Woche
+                weeks = max(analysis_days / 7, 1)
+                player_stats['Pro_Woche'] = (player_stats['Buchungen'] / weeks).round(1)
+            else:
+                player_stats['Checkin_Quote'] = 0
+                player_stats['Pro_Woche'] = 0
             
             # ========================================
             # ÜBERSICHTS-METRIKEN
