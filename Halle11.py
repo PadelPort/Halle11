@@ -19,20 +19,19 @@ import base64
 # 🎨 DESIGN & BRANDING
 # ========================================
 
-# Farbschema halle11
+# Farbschema halle11 (wie Padel Port, aber in Grün)
 COLORS = {
-    'primary': '#1B5E20',      # Dunkelgrün (Berg/Wald)
-    'primary_light': '#4CAF50', # Hellgrün
-    'secondary': '#FFB300',     # Tennis-Gelb/Gold
-    'accent': '#FF5722',        # Padel-Orange
+    'primary': '#1B5E20',       # Dunkelgrün (Berg/Wald)
+    'primary_light': '#2E7D32', # Etwas helleres Grün
+    'secondary': '#4CAF50',     # Helles Grün
+    'accent': '#81C784',        # Mint/Hellgrün
     'success': '#43A047',       # Erfolg-Grün
-    'error': '#E53935',         # Fehler-Rot
-    'warning': '#FB8C00',       # Warnung-Orange
-    'background': '#F8FBF8',    # Soft-Grün-Weiß
+    'warning': '#F39C12',       # Orange
+    'error': '#E74C3C',         # Rot
+    'background': '#F8FBF8',    # Heller Hintergrund
     'card_bg': '#FFFFFF',       # Karten-Hintergrund
-    'text': '#1A1A1A',          # Haupttext
-    'text_light': '#666666',    # Sekundärtext
-    'border': '#E0E0E0',        # Rahmen
+    'text_primary': '#1A1A2E',  # Dunkler Text
+    'text_secondary': '#64748B' # Grauer Text
 }
 
 # SVG Icon als Base64 (Berg + Tennisball)
@@ -1409,146 +1408,57 @@ st.set_page_config(
 )
 
 # ========================================
-# 🎨 HALLE11 DESIGN (THEME-AWARE)
+# 🎨 HALLE11 CSS DESIGN SYSTEM (Padel Port Style in Grün)
 # ========================================
-
-# Dark Mode Check (vor dem CSS!)
-_dark_mode = st.session_state.get('dark_mode', False)
-
-# CSS Variablen basierend auf Mode
-if _dark_mode:
-    _card_bg = "#262730"
-    _card_border = "#3D3D4D"
-    _text_primary = "#FAFAFA"
-    _text_secondary = "#B0B0B0"
-    _bg_subtle = "#0E1117"
-    _shadow_color = "rgba(0,0,0,0.3)"
-    _shadow_hover = "rgba(0,0,0,0.4)"
-    _app_bg = "#0E1117"
-else:
-    _card_bg = "#FFFFFF"
-    _card_border = "#E0E0E0"
-    _text_primary = "#1A1A1A"
-    _text_secondary = "#666666"
-    _bg_subtle = "#F8FBF8"
-    _shadow_color = "rgba(0,0,0,0.08)"
-    _shadow_hover = "rgba(0,0,0,0.12)"
-    _app_bg = "#F8FBF8"
 
 st.markdown(f"""
 <style>
-    /* ===== CSS VARIABLEN ===== */
+    /* ========================================
+       🎨 HALLE11 COLOR VARIABLES
+       ======================================== */
     :root {{
-        --halle11-primary: {COLORS['primary']};
-        --halle11-primary-light: {COLORS['primary_light']};
-        --halle11-secondary: {COLORS['secondary']};
-        --halle11-accent: {COLORS['accent']};
-        --halle11-success: {COLORS['success']};
-        --halle11-error: {COLORS['error']};
-        --halle11-warning: {COLORS['warning']};
-        --card-bg: {_card_bg};
-        --card-border: {_card_border};
-        --text-primary: {_text_primary};
-        --text-secondary: {_text_secondary};
-        --bg-subtle: {_bg_subtle};
-        --shadow-color: {_shadow_color};
-        --shadow-hover: {_shadow_hover};
+        --h11-primary: {COLORS['primary']};
+        --h11-primary-light: {COLORS['primary_light']};
+        --h11-secondary: {COLORS['secondary']};
+        --h11-accent: {COLORS['accent']};
+        --h11-success: {COLORS['success']};
+        --h11-warning: {COLORS['warning']};
+        --h11-error: {COLORS['error']};
+        --h11-bg: {COLORS['background']};
+        --h11-card-bg: #FFFFFF;
+        --h11-text: {COLORS['text_primary']};
+        --h11-text-secondary: {COLORS['text_secondary']};
+        --h11-shadow: rgba(27, 94, 32, 0.1);
+        --h11-border: rgba(76, 175, 80, 0.2);
     }}
     
-    /* ===== FORCE THEME COLORS ===== */
-    [data-testid="stAppViewContainer"],
-    [data-testid="stHeader"],
-    .main {{
-        background: {_app_bg} !important;
+    /* Dark Mode Support */
+    @media (prefers-color-scheme: dark) {{
+        :root {{
+            --h11-card-bg: #1E293B;
+            --h11-text: #F1F5F9;
+            --h11-text-secondary: #94A3B8;
+            --h11-shadow: rgba(0, 0, 0, 0.3);
+            --h11-border: rgba(76, 175, 80, 0.3);
+        }}
     }}
     
-    [data-testid="block-container"] {{
-        color: {_text_primary} !important;
-    }}
-    
-    /* ===== TEXT COLORS ===== */
-    .stMarkdown, .stMarkdown p, .stMarkdown span,
-    .stCaption, h1, h2, h3, h4, h5, h6,
-    label, .stTextInput label, .stSelectbox label,
-    [data-testid="stMetricValue"], [data-testid="stMetricLabel"],
-    .stDataFrame th, .stDataFrame td {{
-        color: {_text_primary} !important;
-    }}
-    
-    .stCaption, [data-testid="stMetricDelta"] {{
-        color: {_text_secondary} !important;
-    }}
-    
-    /* ===== STREAMLIT WIDGETS ===== */
-    .stTextInput input, .stSelectbox > div > div,
-    .stNumberInput input, .stDateInput input {{
-        background: {_card_bg} !important;
-        color: {_text_primary} !important;
-        border-color: {_card_border} !important;
-    }}
-    
-    .stExpander {{
-        background: {_card_bg} !important;
-        border-color: {_card_border} !important;
-    }}
-    
-    .stExpander [data-testid="stExpanderToggleIcon"] {{
-        color: {_text_primary} !important;
-    }}
-    
-    /* Checkbox/Toggle */
-    .stCheckbox label span {{
-        color: {_text_primary} !important;
-    }}
-    
-    /* ===== GLOBALE STYLES ===== */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    .stApp {{
-        font-family: 'Inter', sans-serif;
-        background: {_app_bg} !important;
-    }}
-    
-    /* ===== HEADER BRANDING (immer grün) ===== */
-    .main-header {{
-        background: linear-gradient(135deg, var(--halle11-primary) 0%, var(--halle11-primary-light) 100%);
-        padding: 1.5rem 2rem;
-        border-radius: 16px;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 4px 20px rgba(27, 94, 32, 0.15);
-        text-align: center;
-        color: white !important;
-    }}
-    
-    .main-header h1 {{
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin: 0;
-        color: white !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-    }}
-    
-    .main-header .subtitle {{
-        font-size: 1rem;
-        opacity: 0.9;
-        margin-top: 0.3rem;
-        color: white !important;
-    }}
-    
-    /* ===== METRIC CARDS (Theme-aware) ===== */
+    /* ========================================
+       📦 METRIC CARDS
+       ======================================== */
     .metric-card {{
-        background: var(--card-bg);
+        background: var(--h11-card-bg);
         border-radius: 16px;
-        padding: 1.2rem;
-        box-shadow: 0 2px 12px var(--shadow-color);
-        border: 1px solid var(--card-border);
+        padding: 1.25rem;
+        box-shadow: 0 4px 20px var(--h11-shadow);
+        border: 1px solid var(--h11-border);
         transition: all 0.3s ease;
         text-align: center;
     }}
     
     .metric-card:hover {{
-        transform: translateY(-4px);
-        box-shadow: 0 8px 25px var(--shadow-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px var(--h11-shadow);
     }}
     
     .metric-card .icon {{
@@ -1559,126 +1469,65 @@ st.markdown(f"""
     .metric-card .value {{
         font-size: 1.8rem;
         font-weight: 700;
-        color: var(--text-primary);
-        line-height: 1.2;
+        color: var(--h11-text);
+        margin: 0.25rem 0;
     }}
     
     .metric-card .label {{
         font-size: 0.85rem;
-        color: var(--text-secondary);
-        margin-top: 0.3rem;
+        color: var(--h11-text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }}
     
     .metric-card .delta {{
         font-size: 0.8rem;
-        padding: 0.2rem 0.5rem;
+        margin-top: 0.5rem;
+        padding: 0.25rem 0.5rem;
         border-radius: 20px;
         display: inline-block;
-        margin-top: 0.5rem;
     }}
     
-    .metric-card .delta.positive {{
-        background: rgba(67, 160, 71, 0.15);
-        color: var(--halle11-success);
+    /* Card Variants */
+    .metric-card.primary {{
+        border-top: 4px solid var(--h11-primary);
     }}
     
-    .metric-card .delta.negative {{
-        background: rgba(229, 57, 53, 0.15);
-        color: var(--halle11-error);
+    .metric-card.secondary {{
+        border-top: 4px solid var(--h11-secondary);
     }}
     
-    /* Spezielle Karten-Farben */
-    .metric-card.total {{ border-top: 4px solid var(--halle11-secondary); }}
-    .metric-card.padel {{ border-top: 4px solid var(--halle11-accent); }}
-    .metric-card.tennis {{ border-top: 4px solid var(--halle11-primary-light); }}
-    .metric-card.wellpass {{ border-top: 4px solid var(--halle11-primary); }}
-    .metric-card.extras {{ border-top: 4px solid #9C27B0; }}
-    
-    /* ===== STATUS BADGES ===== */
-    .status-badge {{
-        display: inline-flex;
-        align-items: center;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 500;
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        color: var(--text-primary);
+    .metric-card.accent {{
+        border-top: 4px solid var(--h11-accent);
     }}
     
-    .status-badge.success {{
-        background: rgba(67, 160, 71, 0.15);
-        color: var(--halle11-success);
-        border-color: var(--halle11-success);
+    .metric-card.success {{
+        border-top: 4px solid var(--h11-success);
     }}
     
-    .status-badge.error {{
-        background: rgba(229, 57, 53, 0.15);
-        color: var(--halle11-error);
-        border-color: var(--halle11-error);
+    .metric-card.warning {{
+        border-top: 4px solid var(--h11-warning);
     }}
     
-    .status-badge.warning {{
-        background: rgba(251, 140, 0, 0.15);
-        color: var(--halle11-warning);
-        border-color: var(--halle11-warning);
-    }}
-    
-    /* ===== NAVIGATION ===== */
-    .date-display {{
-        background: var(--card-bg);
-        padding: 0.8rem 2rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px var(--shadow-color);
-        font-weight: 600;
-        font-size: 1.1rem;
-        color: var(--text-primary);
-        border: 1px solid var(--card-border);
-    }}
-    
-    /* ===== BUTTONS ===== */
-    .stButton > button {{
-        border-radius: 12px !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
-    }}
-    
-    .stButton > button:hover {{
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px var(--shadow-hover) !important;
-    }}
-    
-    /* ===== EXPANDER ===== */
-    .stExpander {{
-        background: var(--card-bg);
-        border-radius: 12px !important;
-        border: 1px solid var(--card-border) !important;
-        margin-bottom: 0.8rem !important;
-        overflow: hidden;
-    }}
-    
-    .stExpander > div {{
-        padding: 0.8rem !important;
-    }}
-    
-    /* ===== SIDEBAR (immer dunkelgrün) ===== */
+    /* ========================================
+       🚢 SIDEBAR STYLING
+       ======================================== */
     [data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, var(--halle11-primary) 0%, #0D3311 100%) !important;
+        background: linear-gradient(180deg, {COLORS['primary']} 0%, {COLORS['primary_light']} 100%);
     }}
     
     [data-testid="stSidebar"] * {{
         color: white !important;
     }}
     
-    [data-testid="stSidebar"] .stMarkdown,
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3 {{
+    [data-testid="stSidebar"] .stTextInput input {{
+        background: rgba(255,255,255,0.15) !important;
+        border: 1px solid rgba(255,255,255,0.3) !important;
         color: white !important;
+    }}
+    
+    [data-testid="stSidebar"] .stTextInput input::placeholder {{
+        color: rgba(255,255,255,0.6) !important;
     }}
     
     [data-testid="stSidebar"] [data-testid="stFileUploader"] section {{
@@ -1687,264 +1536,140 @@ st.markdown(f"""
         border-radius: 12px !important;
     }}
     
-    [data-testid="stSidebar"] [data-testid="stFileUploader"] section:hover {{
-        border-color: rgba(255,255,255,0.8) !important;
-        background: rgba(255,255,255,0.15) !important;
-    }}
-    
-    [data-testid="stSidebar"] .stButton button {{
-        background: var(--halle11-secondary) !important;
-        color: #1A1A1A !important;
-        font-weight: 600 !important;
-        border: none !important;
-    }}
-    
-    /* ===== TABS ===== */
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: 8px;
-        background: var(--card-bg);
-        padding: 0.5rem;
+    /* ========================================
+       🎯 BUTTONS
+       ======================================== */
+    .stButton > button {{
+        background: linear-gradient(135deg, {COLORS['secondary']} 0%, {COLORS['primary']} 100%);
+        color: white;
+        border: none;
         border-radius: 12px;
-        border: 1px solid var(--card-border);
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
     }}
     
-    .stTabs [data-baseweb="tab"] {{
-        border-radius: 8px;
-        padding: 0.5rem 1.5rem;
-        font-weight: 500;
-        color: var(--text-primary);
+    .stButton > button:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
     }}
     
-    .stTabs [aria-selected="true"] {{
-        background: var(--halle11-primary) !important;
-        color: white !important;
-    }}
-    
-    /* ===== SUCCESS/ERROR BOXES ===== */
-    .success-box {{
-        background: rgba(67, 160, 71, 0.15);
-        border-left: 4px solid var(--halle11-success);
-        padding: 1rem 1.5rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-        color: var(--text-primary);
-    }}
-    
-    .error-box {{
-        background: rgba(229, 57, 53, 0.15);
-        border-left: 4px solid var(--halle11-error);
-        padding: 1rem 1.5rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-        color: var(--text-primary);
-    }}
-    
-    .info-box {{
-        background: rgba(27, 94, 32, 0.15);
-        border-left: 4px solid var(--halle11-primary);
-        padding: 1rem 1.5rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-        color: var(--text-primary);
-    }}
-    
-    /* ===== DATAFRAME ===== */
+    /* ========================================
+       📊 TABLES & DATAFRAMES
+       ======================================== */
     .stDataFrame {{
         border-radius: 12px;
         overflow: hidden;
-        box-shadow: 0 2px 8px var(--shadow-color);
+        box-shadow: 0 2px 10px var(--h11-shadow);
     }}
     
-    /* ===== STREAMLIT NATIVE ELEMENTS (Theme-aware) ===== */
-    
-    /* Text und Labels */
-    .stMarkdown, .stText, p, span, label {{
-        color: {_text_primary} !important;
-    }}
-    
-    .stCaption, [data-testid="stCaptionContainer"] {{
-        color: {_text_secondary} !important;
-    }}
-    
-    /* Metrics */
-    [data-testid="stMetricValue"] {{
-        color: {_text_primary} !important;
-    }}
-    
-    [data-testid="stMetricLabel"] {{
-        color: {_text_secondary} !important;
-    }}
-    
-    [data-testid="stMetricDelta"] {{
-        color: {_text_secondary} !important;
-    }}
-    
-    /* Expander */
-    .stExpander {{
-        background: {_card_bg} !important;
-        border: 1px solid {_card_border} !important;
-        border-radius: 12px !important;
-    }}
-    
-    .stExpander [data-testid="stExpanderToggleIcon"] {{
-        color: {_text_primary} !important;
-    }}
-    
-    .stExpander summary {{
-        color: {_text_primary} !important;
-    }}
-    
-    /* Info/Success/Error Boxes */
-    [data-testid="stAlert"] {{
-        background: {_card_bg} !important;
-        border: 1px solid {_card_border} !important;
-        color: {_text_primary} !important;
-    }}
-    
-    /* Selectbox & Input */
-    .stSelectbox label, .stTextInput label, .stNumberInput label {{
-        color: {_text_primary} !important;
-    }}
-    
-    .stSelectbox [data-baseweb="select"] {{
-        background: {_card_bg} !important;
-        border-color: {_card_border} !important;
-    }}
-    
-    .stSelectbox [data-baseweb="select"] * {{
-        color: {_text_primary} !important;
-    }}
-    
-    /* Checkbox */
-    .stCheckbox label {{
-        color: {_text_primary} !important;
-    }}
-    
-    /* Toggle */
-    [data-testid="stToggle"] label {{
-        color: {_text_primary} !important;
-    }}
-    
-    /* Plotly Charts */
-    .js-plotly-plot {{
-        background: {_card_bg} !important;
-    }}
-    
-    /* Main Container */
-    [data-testid="stAppViewContainer"] {{
-        background: {_app_bg} !important;
-    }}
-    
-    [data-testid="stHeader"] {{
-        background: {_app_bg} !important;
-    }}
-    
-    /* DataFrame Headers und Zellen */
-    .stDataFrame th {{
-        background: {_card_bg} !important;
-        color: {_text_primary} !important;
-    }}
-    
-    .stDataFrame td {{
-        background: {_card_bg} !important;
-        color: {_text_primary} !important;
-    }}
-    
-    /* ===== MOBILE RESPONSIVE ===== */
-    @media (max-width: 768px) {{
-        .main-header h1 {{
-            font-size: 1.8rem;
-        }}
-        
-        .metric-card {{
-            padding: 0.8rem;
-        }}
-        
-        .metric-card .value {{
-            font-size: 1.4rem;
-        }}
-        
-        .metric-card .icon {{
-            font-size: 1.5rem;
-        }}
-        
-        .date-display {{
-            padding: 0.5rem 1rem;
-            font-size: 0.9rem;
-        }}
-    }}
-    
-    /* ===== ANIMATIONS ===== */
+    /* ========================================
+       ✨ ANIMATIONS
+       ======================================== */
     @keyframes fadeIn {{
         from {{ opacity: 0; transform: translateY(10px); }}
         to {{ opacity: 1; transform: translateY(0); }}
     }}
     
-    .animate-in {{
-        animation: fadeIn 0.4s ease-out;
-    }}
-    
     @keyframes pulse {{
-        0%, 100% {{ transform: scale(1); }}
-        50% {{ transform: scale(1.05); }}
+        0%, 100% {{ opacity: 1; }}
+        50% {{ opacity: 0.7; }}
     }}
     
-    .pulse {{
+    @keyframes wave {{
+        0%, 100% {{ transform: translateY(0); }}
+        50% {{ transform: translateY(-5px); }}
+    }}
+    
+    .animate-in {{
+        animation: fadeIn 0.5s ease-out;
+    }}
+    
+    .animate-pulse {{
         animation: pulse 2s infinite;
     }}
     
-    /* ===== KONFETTI ===== */
-    {CONFETTI_CSS}
-    
-    /* ===== SCROLLBAR ===== */
-    ::-webkit-scrollbar {{
-        width: 8px;
-        height: 8px;
+    /* ========================================
+       🏔️ SPECIAL ELEMENTS
+       ======================================== */
+    .halle11-header {{
+        background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['secondary']} 100%);
+        padding: 2rem;
+        border-radius: 20px;
+        text-align: center;
+        color: white;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 40px rgba(27, 94, 32, 0.3);
     }}
     
-    ::-webkit-scrollbar-track {{
-        background: var(--bg-subtle);
-        border-radius: 4px;
+    .halle11-header h1 {{
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 800;
     }}
     
-    ::-webkit-scrollbar-thumb {{
-        background: var(--halle11-primary-light);
-        border-radius: 4px;
+    .halle11-header .tagline {{
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-top: 0.5rem;
     }}
     
-    ::-webkit-scrollbar-thumb:hover {{
-        background: var(--halle11-primary);
+    .success-box {{
+        background: linear-gradient(135deg, {COLORS['success']}20, {COLORS['accent']}20);
+        border-left: 4px solid {COLORS['success']};
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
     }}
-</style>
-
-<!-- Sound & Konfetti JavaScript -->
-<script>
-    {WHATSAPP_SOUND_JS}
     
-    function triggerConfetti() {{
-        const colors = ['#1B5E20', '#FFB300', '#FF5722', '#43A047', '#9C27B0'];
-        for (let i = 0; i < 50; i++) {{
-            setTimeout(() => {{
-                const confetti = document.createElement('div');
-                confetti.className = 'confetti';
-                confetti.style.left = Math.random() * 100 + 'vw';
-                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
-                confetti.style.animationDuration = (2 + Math.random() * 2) + 's';
-                document.body.appendChild(confetti);
-                setTimeout(() => confetti.remove(), 4000);
-            }}, i * 30);
+    .error-box {{
+        background: linear-gradient(135deg, {COLORS['error']}20, {COLORS['warning']}20);
+        border-left: 4px solid {COLORS['error']};
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+    }}
+    
+    /* ========================================
+       📅 CALENDAR STYLING
+       ======================================== */
+    .calendar-cell {{
+        border-radius: 8px;
+        padding: 0.5rem;
+        text-align: center;
+        min-height: 80px;
+        transition: all 0.2s ease;
+    }}
+    
+    .calendar-cell:hover {{
+        transform: scale(1.02);
+    }}
+    
+    /* ========================================
+       🔍 SEARCH RESULTS
+       ======================================== */
+    .search-result {{
+        background: rgba(255,255,255,0.1);
+        padding: 0.75rem;
+        border-radius: 10px;
+        margin-bottom: 0.5rem;
+        border-left: 3px solid {COLORS['accent']};
+    }}
+    
+    /* ========================================
+       📱 RESPONSIVE
+       ======================================== */
+    @media (max-width: 768px) {{
+        .halle11-header h1 {{
+            font-size: 1.8rem;
+        }}
+        .metric-card .value {{
+            font-size: 1.4rem;
         }}
     }}
-    
-    // Keep-alive ping every 5 minutes
-    setInterval(function() {{
-        const event = new Event('mousemove');
-        document.dispatchEvent(event);
-        console.log('🏔️ halle11 keep-alive ping');
-    }}, 300000);
-</script>
+</style>
 """, unsafe_allow_html=True)
+
 validate_secrets()
 
 if not check_password():
@@ -1960,21 +1685,14 @@ if 'checkins_all' not in st.session_state:
     st.session_state.checkins_all = pd.DataFrame()
 if 'day_idx' not in st.session_state:
     st.session_state.day_idx = 0
-# ✅ Session-Cache für weniger API Calls
 if 'corrections_cache' not in st.session_state:
     st.session_state.corrections_cache = None
 if 'corrections_cache_time' not in st.session_state:
     st.session_state.corrections_cache_time = 0
-# ✅ NEU: Sound-Einstellung
 if 'sound_enabled' not in st.session_state:
     st.session_state.sound_enabled = True
-# ✅ Dark Mode - IMMER AN (stabiler)
-if 'dark_mode' not in st.session_state:
-    st.session_state.dark_mode = True
-st.session_state.dark_mode = True  # Force Dark Mode
-# ✅ Monatsziel - aus Google Sheets laden (persistent!)
 if 'monthly_goal' not in st.session_state:
-    st.session_state.monthly_goal = get_monthly_goal()  # Lädt gespeicherten Wert
+    st.session_state.monthly_goal = get_monthly_goal()
 
 if not st.session_state.data_loaded:
     dates = get_dates()
@@ -2640,13 +2358,12 @@ with tab1:
         
         st.subheader(f"📋 Fehler ({open_count} offen · {fixed_count} behoben)")
         
-        # DataFrame-Übersicht
+        # DataFrame-Übersicht (vollständig angezeigt)
         fehler_df = pd.DataFrame(fehler_data)
         st.dataframe(
             fehler_df[['Status', 'Name', 'Betrag', 'Zeit', 'Telefon', 'WhatsApp']],
             use_container_width=True,
-            hide_index=True,
-            height=min(len(fehler_df) * 35 + 38, 400)
+            hide_index=True
         )
         
         st.markdown("---")
@@ -4030,14 +3747,23 @@ Dein halle11 Team""",
 # FOOTER
 # ========================================
 
-st.markdown("""
+st.markdown(f"""
 <div style="
     margin-top: 3rem; 
-    padding: 1.5rem; 
+    padding: 2rem; 
+    background: linear-gradient(135deg, {COLORS['primary']} 0%, {COLORS['secondary']} 100%);
+    border-radius: 20px;
     text-align: center;
-    color: var(--text-secondary, #86868B);
-    font-size: 0.75rem;
+    color: white;
 ">
-    🏔️ halle11 · v16.2
+    <div style="font-size: 2rem; margin-bottom: 0.5rem;">🏔️🎾</div>
+    <div style="font-weight: 700; font-size: 1.3rem;">halle11</div>
+    <div style="font-size: 1rem; opacity: 0.9; margin-top: 0.25rem;">Tennis & Padel in Bad Waldsee</div>
+    <div style="font-size: 0.8rem; opacity: 0.7; margin-top: 1rem;">
+        v12 · Made with ❤️ for halle11
+    </div>
+    <div style="font-size: 0.7rem; opacity: 0.5; margin-top: 0.5rem;">
+        📅 Tag · 📊 Monat · 👥 Spieler · 🔮 Prognose · 📱 WhatsApp
+    </div>
 </div>
 """, unsafe_allow_html=True)
