@@ -2039,7 +2039,7 @@ with tab1:
     
     with col_info:
         st.markdown(f"""
-            <div style="text-align: center; color: {COLORS['text_light']}; font-size: 0.9rem;">
+            <div style="text-align: center; color: {COLORS['text_secondary']}; font-size: 0.9rem;">
                 Tag {st.session_state.day_idx + 1} von {len(dates)}
             </div>
         """, unsafe_allow_html=True)
